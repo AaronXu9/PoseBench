@@ -67,7 +67,8 @@ def copy_protein_files(source_dir, target_dir, file_extension=".pdb"):
                     print(f"Copied {source_file} to {target_file}")
 
 if __name__ == "__main__":
-    method = "diffdock"  # or "dynamic_bind"
+    method = "dynamic_bind"  # or "dynamic_bind"
+    dataset = "posebusters_benchmark_set"  # or "astex_diverse_set"
     if method == "diffdock":
         # Example usage
         root_dir = '/home/aoxu/projects/PoseBench/'
@@ -82,7 +83,6 @@ if __name__ == "__main__":
 
     elif method == "dynamic_bind":
         # Example usage
-        source_directory = "/home/aoxu/projects/PoseBench/data/astex_diverse_set"
-        target_directory = "/home/aoxu/projects/PoseBench/data/astex_diverse_set/astex_diverse_orig"
-
+        source_directory = f"/home/aoxu/projects/PoseBench/data/{dataset}"
+        target_directory = f"/home/aoxu/projects/PoseBench/data/{dataset}/{dataset}_orig"
         copy_protein_files(source_directory, target_directory)

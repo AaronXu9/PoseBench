@@ -18,6 +18,7 @@ METHOD_TITLE_MAPPING = {
     "vina": "Vina",
     "tulip": "TULIP",
     "p2rank": "P2Rank",
+    "gnina": "gnina",
 }
 
 STANDARDIZED_DIR_METHODS = ["diffdock", "fabind"]
@@ -67,7 +68,7 @@ def resolve_method_protein_dir(
     """
     pocket_suffix = "_bs_cropped" if pocket_only_baseline else ""
     pocket_only_suffix = "_pocket_only" if pocket_only_baseline else ""
-    if method in STANDARDIZED_DIR_METHODS or method in ["vina", "tulip"]:
+    if method in STANDARDIZED_DIR_METHODS or method in ["vina", "tulip", "gnina"]:
         return (
             os.path.join(
                 "data",
@@ -158,6 +159,13 @@ def resolve_method_ligand_dir(
             "inference",
             f"vina{pocket_only_suffix}_{vina_binding_site_method}_{dataset}_outputs_{repeat_index}",
         )
+    elif method == "gnina":
+        return os.path.join(
+            "forks",
+            METHOD_TITLE_MAPPING.get(method, method),
+            "inference",
+            f"gnina{pocket_only_suffix}_{vina_binding_site_method}_{dataset}_outputs_{repeat_index}",
+        )
     else:
         raise ValueError(f"Invalid method: {method}")
 
@@ -213,6 +221,15 @@ def resolve_method_output_dir(
             "inference",
             f"vina{pocket_only_suffix}_{vina_binding_site_method}_{dataset}_outputs_{repeat_index}",
         )
+    
+    elif method == "gnina":
+        return os.path.join(
+            "forks",
+            METHOD_TITLE_MAPPING.get(method, method),
+            "inference",
+            f"gnina{pocket_only_suffix}_{vina_binding_site_method}_{dataset}_outputs_{repeat_index}",
+        )
+    
     elif method == "ensemble":
         return os.path.join(
             "data",
@@ -238,6 +255,7 @@ def resolve_method_input_csv_path(method: str, dataset: str, pocket_only_baselin
         "rfaa",
         "chai-lab",
         "vina",
+        "gnina",
         "tulip",
     ]:
         return os.path.join(
