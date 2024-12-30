@@ -163,6 +163,9 @@ configs/local/default.yaml
 
 # Forks
 /workdir/
+/forks/chai-lab/chai-lab/
+/forks/chai-lab/prediction_inputs/
+/forks/chai-lab/prediction_outputs/
 /forks/DiffDock1.0/
 /forks/DiffDock/DiffDock/
 /forks/DynamicBind/*.npy
@@ -189,6 +192,7 @@ configs/local/default.yaml
 /forks/RoseTTAFold-All-Atom/psipred/
 /forks/TULIP/outputs/
 /forks/Vina/ADFR/
+<<<<<<< HEAD
 scripts/inference/
 /forks/ICM/
 /ICM/
@@ -198,3 +202,6 @@ scripts/inference/
 
 # plots 
 /notebooks/*.png
+=======
+scripts/*inference*/
+>>>>>>> 0f87ff2a28e825bafe630bdbb77d2e4d06b020e0
