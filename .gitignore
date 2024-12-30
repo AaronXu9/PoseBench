@@ -190,3 +190,11 @@ configs/local/default.yaml
 /forks/TULIP/outputs/
 /forks/Vina/ADFR/
 scripts/inference/
+/forks/ICM/
+/ICM/
+
+#system specific 
+.DS_Store
+
+# plots 
+/notebooks/*.png
