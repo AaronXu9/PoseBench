@@ -1,0 +1,6 @@
+
+call _startup
+show version
+
+
+quit
