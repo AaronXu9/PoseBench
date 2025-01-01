@@ -230,22 +230,22 @@ def create_mol_table(
         pocket_suffix = "_bs_cropped" if cfg.pocket_only_baseline else ""
         protein_structure_input_dir = (
             os.path.join(
-                input_data_dir, f"{cfg.dataset}_holo_aligned_predicted_structures{pocket_suffix}"
+                input_data_dir, f"{cfg.dataset}_set_orig{pocket_suffix}"
             )
             if os.path.exists(
                 os.path.join(
                     input_data_dir,
-                    f"{cfg.dataset}_holo_aligned_predicted_structures{pocket_suffix}",
+                    f"{cfg.dataset}_set_orig{pocket_suffix}",
                 )
             )
             else os.path.join(input_data_dir, f"{cfg.dataset}_predicted_structures")
         )
         protein_structure_file_suffix = (
-            "_holo_aligned_predicted_protein"
+            ""
             if os.path.exists(
                 os.path.join(
                     input_data_dir,
-                    f"{cfg.dataset}_holo_aligned_predicted_structures{pocket_suffix}",
+                    f"{cfg.dataset}_set_orig{pocket_suffix}",
                 )
             )
             and cfg.dataset != "casp15"
@@ -272,15 +272,16 @@ def create_mol_table(
         else:
             mol_table["mol_cond"] = input_table["pdb_id"].apply(
                 lambda x: os.path.join(
-                    protein_structure_input_dir, f"{x}{protein_structure_file_suffix}.pdb"
+                    protein_structure_input_dir, f"{x}{protein_structure_file_suffix}_protein.pdb"
                 )
                 if os.path.exists(
                     os.path.join(
-                        protein_structure_input_dir, f"{x}{protein_structure_file_suffix}.pdb"
+                        protein_structure_input_dir, f"{x}{protein_structure_file_suffix}_protein.pdb"
                     )
                 )
                 else None
             )
+            # print(protein_structure_input_dir, "suffix", pocket_suffix, protein_structure_file_suffix, mol_table)
     # parse true molecule files
     mol_true_file_ext = ".pdb" if cfg.dataset == "dockgen" else ".sdf"
     mol_table["mol_true"] = input_table["pdb_id"].apply(
@@ -604,7 +605,6 @@ def create_mol_table(
                     if len(list((Path(str(unrelaxed_inference_dir))).rglob(f"{x}.sdf")))
                     else None
                 )
-
             elif cfg.method == "gnina":
                 mol_table.loc[missing_pred_indices, "mol_pred"] = input_table.loc[
                     missing_pred_indices, "pdb_id"
@@ -656,7 +656,6 @@ def create_mol_table(
     if cfg.dataset == "casp15":
         mol_table.reset_index(drop=True, inplace=True)
         mol_table = df_split_mol_frags(mol_table)
-
     return mol_table
 
 
