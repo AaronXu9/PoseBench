@@ -192,4 +192,7 @@ configs/local/default.yaml
 /forks/RoseTTAFold-All-Atom/psipred/
 /forks/TULIP/outputs/
 /forks/Vina/ADFR/
-scripts/*inference*/
+scripts/inference/
+/forks/RoseTTAFold-All-Atom/UniRef30_2020_06/
+/forks/ICM/
+/forks/gnina/
