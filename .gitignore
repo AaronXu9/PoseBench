@@ -192,16 +192,16 @@ configs/local/default.yaml
 /forks/RoseTTAFold-All-Atom/psipred/
 /forks/TULIP/outputs/
 /forks/Vina/ADFR/
-<<<<<<< HEAD
 scripts/inference/
-/forks/ICM/
+/forks/gnia/gnina
+/forks/ICM/ICM_docking_maps/
+/forks/ICM/ICM_manual_docking_maps/
+/forks/ICM/icm_posebusters_benchmark_output_*/*
+/forks/ICM/legacy_examples/
 /ICM/
-
 #system specific 
 .DS_Store
 
 # plots 
 /notebooks/*.png
-=======
 scripts/*inference*/
->>>>>>> 0f87ff2a28e825bafe630bdbb77d2e4d06b020e0
