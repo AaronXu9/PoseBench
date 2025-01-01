@@ -1,0 +1,69 @@
+call _startup
+show version
+
+openFile "/home/aoxu/projects/PoseBench/data/posebusters_benchmark_set/ProteinNameHolder/ProteinNameHolder_protein.pdb" 0 yes no no no " append"
+openFile "/home/aoxu/projects/PoseBench/data/posebusters_benchmark_set/ProteinNameHolder/ProteinNameHolder_ligand.sdf" 0 yes no no no " append"
+
+s_out = "ProteinNameHolder_ligand"
+vProteinNameHolder_ligand.NAME_[1] = s_out
+
+I_out = Index( vProteinNameHolder_ligand selection cursor ) 
+if( Type( vProteinNameHolder_ligand.crysym ) == "sarray" ) then 
+  read mol input = Sum( Sarray( vProteinNameHolder_ligand.mol [I_out] ) + Sarray(Nof(I_out),"> <crysym>\\n") + Sarray( vProteinNameHolder_ligand.crysym [I_out] ) + Sarray(Nof(I_out),"\\n\\n") , "$$$$\\n" ) 
+else 
+  parrayToMol vProteinNameHolder_ligand.mol [ I_out ] 
+endif 
+
+
+S_out = Name( Obj( a_ProteinNameHolder_protein. ) ) 
+   for i=1,Nof(S_out) 
+     convertObject a_$S_out[i]. 2==1 yes yes yes yes yes no ""+( 2==2 ? "water=tight ":( 2==3 ? "water=tight2.5 ":"") )+( no ? "tautomer ":"" ) + ( no ? "amino_name_fix " : "" ) 
+   endfor 
+   assign sstructure a_A 
+   cool a_ no 
+
+   moveMol Mol( a_ProteinNameHolder_ligand.m/1/c1 ) ""
+
+ S_out = Sarray( s_projectsDir + "icmdock/" ) 
+ dockIdentSites a_ProteinNameHolder_protein. 
+  as_graph = Sphere( g_pocket_ProteinNameHolder_protein1 a_ProteinNameHolder_protein. 3.2 ) 
+ if ( ! Exist( "/home/aoxu/projects/PoseBench/forks/ICM/ICM_docking_maps/protein_ProteinNameHolder/" ) ) make directory "/home/aoxu/projects/PoseBench/forks/ICM/ICM_docking_maps/protein_ProteinNameHolder/" 
+ set directory "/home/aoxu/projects/PoseBench/forks/ICM/ICM_docking_maps/protein_ProteinNameHolder/" 
+ currentDockProj.data[8] = "yes" 
+ if( Type( as_graph ) == "aselection" ) tempsel = as_graph & a_ProteinNameHolder_protein. 
+ if( Type( as_graph ) == "unknown" ) tempsel = as_graph & a_ProteinNameHolder_protein. 
+ dock2SetupReceptor "protein_ProteinNameHolder" a_ProteinNameHolder_protein. tempsel yes no ? "enhancedBorn" : "none" 
+ if( yes & currentDockProj.l_readyReceptor ) dock5CalcMaps "protein_ProteinNameHolder" 0.5 4.0 no 
+ currentDockProj.data[1] = "`protein_ProteinNameHolder`" 
+ 
+
+  S_out = Sarray( s_projectsDir + "icmdock/" ) 
+ dockIdentSites a_7U3J_L6U_protein. 
+  as_graph = Sphere( g_pocket_7U3J_L6U_protein1 a_7U3J_L6U_protein. 3.2 ) 
+ if ( ! Exist( "/home/aoxu/projects/PoseBench/forks/ICM/ICM_docking_maps/protein_7U3J_L6U/" ) ) make directory "/home/aoxu/projects/PoseBench/forks/ICM/ICM_docking_maps/protein_7U3J_L6U/" 
+ set directory "/home/aoxu/projects/PoseBench/forks/ICM/ICM_docking_maps/protein_7U3J_L6U/" 
+ currentDockProj.data[8] = "yes" 
+ if( Type( as_graph ) == "aselection" ) tempsel = as_graph & a_7U3J_L6U_protein. 
+ if( Type( as_graph ) == "unknown" ) tempsel = as_graph & a_7U3J_L6U_protein. 
+ dock2SetupReceptor "protein_7U3J_L6U" a_7U3J_L6U_protein. tempsel yes no ? "enhancedBorn" : "none" 
+ if( yes & currentDockProj.l_readyReceptor ) dock5CalcMaps "protein_7U3J_L6U" 0.5 4.0 no 
+ currentDockProj.data[1] = "protein_7U3J_L6U"
+
+
+
+# s_out = Path() 
+# S_out = Name( model, "DOCKING" ) 
+# dockMakeInputTable currentDockProj.data[1] Name( vProteinNameHolder_ligand table ) 
+# 
+# dockInputTable Name( vProteinNameHolder_ligand table ) 
+# /home/aoxu/icm-3.9-4/icm64 /home/aoxu/icm-3.9-4/_dockScan -s -a thorough=10. name=vProteinNameHolder_ligand input=vProteinNameHolder_ligand_input.sdf -S confs=3 protein_ProteinNameHolder 
+# vProteinNameHolder_ligand.l_busyDocking = no
+# dockProcessAnswersFromInputTable "vProteinNameHolder_ligand"
+# 
+# if ( ! Exist( "/home/aoxu/projects/PoseBench/forks/ICM/inference/ProteinNameHolder/" ) ) make directory "/home/aoxu/projects/PoseBench/forks/ICM/inference/ProteinNameHolder" 
+# s_out = "/home/aoxu/projects/PoseBench/forks/ICM/inference/ProteinNameHolder/ProteinNameHolder" 
+# writeProject s_out s_currentProject!="" 
+# 
+# write table mol compress ProteinNameHolder_ligand_docked "/home/aoxu/projects/PoseBench/forks/ICM/inference/ProteinNameHolder/vProteinNameHolder_ligand_docked.sdf"
+
+ # quit
