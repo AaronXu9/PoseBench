@@ -205,3 +205,6 @@ scripts/inference/
 # plots 
 /notebooks/*.png
 scripts/*inference*/
+/forks/RoseTTAFold-All-Atom/UniRef30_2020_06/
+/forks/ICM/
+/forks/gnina/
