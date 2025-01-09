@@ -194,5 +194,8 @@ configs/local/default.yaml
 /forks/Vina/ADFR/
 scripts/inference/
 /forks/RoseTTAFold-All-Atom/UniRef30_2020_06/
-/forks/ICM/
-/forks/gnina/
+/forks/gnia/gnina
+/forks/ICM/ICM_docking_maps/
+/forks/ICM/ICM_manual_docking_maps/
+/forks/ICM/icm_posebusters_benchmark_output_*/*
+/forks/ICM/legacy_examples/
