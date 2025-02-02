@@ -134,3 +134,147 @@ class ChaiApproach(DockingApproach):
     # No score or confidence stored
     def parse_score(self, sdf_path: str) -> float:
         return float('nan')
+    
+
+class VinaApproach(DockingApproach):
+    def get_name(self) -> str:
+        return "vina"
+
+    def list_top_n_files(self, protein_dir: str, top_n: int) -> List[str]:
+        """
+        Vina outputs are named like '5SAK_ZRY_pose3_score-7.97.sdf'
+        We'll parse 'pose(\d+)' to get the rank, sort, and return top_n.
+        """
+        all_files = os.listdir(protein_dir)
+        sdf_files = [f for f in all_files if '_pose' in f and f.endswith('.sdf')]
+
+        def extract_pose_num(fname: str) -> int:
+            match = re.search(r'pose(\d+)', fname)
+            if match:
+                return int(match.group(1))
+            return 999999
+        
+        sdf_files.sort(key=extract_pose_num)
+        return [os.path.join(protein_dir, f) for f in sdf_files[:top_n]]
+
+
+    def parse_score(self, sdf_path: str) -> float:
+        """
+        Score is in filename like '5SAK_ZRY_pose3_score-7.97.sdf'
+        """
+        fname = os.path.basename(sdf_path)
+        match = re.search(r'score-([\-\d\.]+)', fname)
+        if match:
+            score_str = match.group(1)
+            score_str = score_str.rstrip('.')
+            try:
+                return float(score_str)
+            except ValueError:
+                print(f"[WARNING] Could not parse score '{score_str}' from {fname}")
+                return float('nan')
+        return float('nan')
+    
+
+class GninaApproach(DockingApproach):
+    def get_name(self) -> str:
+        return "gnina"
+    
+    def list_top_n_files(self, protein_dir: str, top_n: int) -> List[str]:
+        """
+        GNINA outputs are named like 'rank1_score-7.97.sdf'
+        We'll parse 'rank(\d+)' to get the rank, sort, and return top_n.
+        """
+        all_files = os.listdir(protein_dir)
+        sdf_files = [f for f in all_files if f.startswith('rank') and f.endswith('.sdf')]
+        
+        def extract_rank_num(fname: str) -> int:
+            match = re.search(r'rank(\d+)', fname)
+            if match:
+                return int(match.group(1))
+            return 999999
+        
+        sdf_files.sort(key=extract_rank_num)
+        return [os.path.join(protein_dir, f) for f in sdf_files[:top_n]]
+    
+    def parse_score(self, sdf_path: str) -> float:
+        """
+        Score is in filename like 'rank1_score-7.97.sdf'
+        """
+        fname = os.path.basename(sdf_path)
+        match = re.search(r'score([\-\d\.]+)', fname)
+        if match:
+            score_str = match.group(1)
+            score_str = score_str.rstrip('.')
+            try:
+                return float(score_str)
+            except ValueError:
+                print(f"[WARNING] Could not parse score '{score_str}' from {fname}")
+                return float('nan')
+        return float('nan')
+    
+
+class SurfDockApproach(DockingApproach):
+    def get_name(self) -> str:
+        return "surfDock"
+
+    def list_top_n_files(self, protein_dir: str, top_n: int) -> List[str]:
+        """
+        Rename the directory from something like:
+          5SAK_ZRY_protein_8A_5SAK_ZRY_ligand
+        to:
+          5SAK_ZRY
+        Then locate any SDF files and return the top_n entries (sorted if needed).
+        """
+        # Example directory rename (adjust as necessary)
+        new_dir = re.sub(r"_protein_.*_ligand$", "", protein_dir)
+        if os.path.exists(protein_dir) and not os.path.exists(new_dir):
+            os.rename(protein_dir, new_dir)
+        
+        all_files = os.listdir(new_dir)
+        sdf_files = [f for f in all_files if f.endswith(".sdf")]
+
+        # Sort by rank if needed, for example:
+        # parse something like ..._rank_11_... 
+        def extract_rank(fname: str) -> int:
+            match = re.search(r"rank_(\d+)", fname)
+            if match:
+                return int(match.group(1))
+            return 999999
+
+        sdf_files.sort(key=extract_rank)
+        return [os.path.join(new_dir, f) for f in sdf_files[:top_n]]
+
+    def parse_score(self, sdf_path: str) -> float:
+        """
+        Extract RMSD and confidence from filenames like:
+          5SAK_5SAK_ZRY_A_404_5SAK_ZRY_ligand.sdf_file_inner_idx_0_sample_idx_19_rank_11_rmsd_0.38968_confidence_280.8584.sdf
+        Parse both RMSD and confidence, return confidence as the 'score'.
+        """
+        fname = os.path.basename(sdf_path)
+        
+        # Parse RMSD
+        match_rmsd = re.search(r"rmsd_([\-\d\.]+)", fname)
+        if match_rmsd:
+            try:
+                rmsd = float(match_rmsd.group(1))
+            except ValueError:
+                print(f"[WARNING] Could not parse RMSD from {fname}")
+                rmsd = float('nan')
+        else:
+            rmsd = float('nan')
+        
+        # Parse confidence
+        match_conf = re.search(r"confidence_([\-\d\.]+)", fname)
+        if match_conf:
+            try:
+                confidence = float(match_conf.group(1).rstrip('.'))
+            except ValueError:
+                print(f"[WARNING] Could not parse confidence from {fname}")
+                confidence = float('nan')
+        else:
+            confidence = float('nan')
+        
+        print(f"Parsed from {fname}: RMSD={rmsd}, confidence={confidence}")
+        # Return confidence as the 'score' for consistency
+        return confidence
+
