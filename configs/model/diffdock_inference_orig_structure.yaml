@@ -2,7 +2,8 @@ cuda_device_index: 0 # the CUDA device to use for inference, or `null` to use CP
 python_exec_path: ${oc.env:PROJECT_ROOT}/forks/DiffDock/DiffDock/bin/python3 # the Python executable to use
 diffdock_exec_dir: ${oc.env:PROJECT_ROOT}/forks/DiffDock # the DiffDock directory in which to execute the inference scripts
 dataset: posebusters_benchmark # the dataset to use - NOTE: must be one of (`posebusters_benchmark`, `astex_diverse`, `dockgen`, `casp15`)
-input_csv_path: ${oc.env:PROJECT_ROOT}/forks/DiffDock/inference/diffdock_${dataset}_inputs.csv # the input CSV filepath with which to run inference
+# input_csv_path: ${oc.env:PROJECT_ROOT}/forks/DiffDock/inference/diffdock_${dataset}_inputs.csv # the input CSV filepath with which to run inference
+input_csv_path: ${oc.env:PROJECT_ROOT}/forks/DiffDock/inference/diffdock_${dataset}_inputs_orig.csv # the input CSV filepath with which to run inference
 inference_config_path: ${oc.env:PROJECT_ROOT}/forks/DiffDock/default_inference_args.yaml # the inference configuration file to use
 output_dir: ${oc.env:PROJECT_ROOT}/forks/DiffDock/inference/diffdock_${dataset}_output_${repeat_index} # the output directory to which to save the inference results
 model_dir: ${oc.env:PROJECT_ROOT}/forks/DiffDock/workdir/v1.1/score_model # the directory in which the trained model is saved
@@ -14,4 +15,6 @@ actual_steps: 19 # the actual number of inference steps to run (i.e., after how 
 no_final_step_noise: true # whether to disable the final inference step's noise from being added
 repeat_index: 1 # the repeat index to use for inference
 skip_existing: true # whether to skip inference for existing output directories
+pocket_only_baseline: true # whether to run the pocket-only baseline
 max_num_inputs: null # if provided, the number of (dataset subset) inputs over which to run inference
+v1_baseline: false # whether to run the v1 baseline
