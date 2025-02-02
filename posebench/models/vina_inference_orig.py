@@ -9,6 +9,8 @@ import shutil
 import tempfile
 from collections import defaultdict
 from pathlib import Path
+import re
+import subprocess
 
 import hydra
 import numpy as np
@@ -362,6 +364,17 @@ def run_vina_inference(
 
     return output_filepaths
 
+def parse_vina_scores(pdbqt_file: str) -> List[float]:
+    """Extract docking scores from Vina PDBQT output"""
+    scores = []
+    with open(pdbqt_file, 'r') as f:
+        for line in f:
+            if line.startswith('REMARK VINA RESULT:'):
+                # Line format: "REMARK VINA RESULT: score    rmsd    rmsd"
+                score = float(line.split()[3])
+                scores.append(score)
+    return scores
+
 
 def write_vina_outputs(
     output_filepaths: List[str],
@@ -415,6 +428,98 @@ def write_vina_outputs(
     combined_ligand = combine_molecules(group_ligands_list)
     Chem.MolToMolFile(combined_ligand, os.path.join(cfg.output_dir, item, f"{item}.sdf"))
 
+def write_vina_results_obabel(output_dir: str, vina_output: str, base_name: str):
+        # Convert each pose to separate SDF with score in filename
+        output_files = []
+        scores = parse_vina_scores(vina_output)
+        for pose_idx, score in enumerate(scores, 1):
+            pose_output = os.path.join(output_dir, 
+                                     f"{base_name}_pose{pose_idx}_score{score:.2f}.sdf")
+            # Extract single pose using -f flag in obabel
+            cmd = f"obabel {vina_output} -O {pose_output} -f {pose_idx} -l {pose_idx}"
+            subprocess.run(cmd, shell=True, check=True)
+            output_files.append(pose_output)
+            
+        return output_files
+
+def write_vina_outputs_conf(
+    output_filepaths: List[str],
+    ligand_binding_site_mapping: BINDING_SITES_DICT,
+    item: str,
+    cfg: DictConfig,
+    remove_hs: bool = True,
+    num_conf: int = 10  # Number of conformations to keep
+):
+    """Write AutoDock Vina outputs with scores for multiple conformations
+    
+    Args:
+        output_filepaths: List of PDBQT output files from Vina
+        ligand_binding_site_mapping: Binding site information
+        item: Name of the item/protein
+        num_ligands: Number of ligands
+        cfg: Configuration
+        remove_hs: Whether to remove hydrogens
+        num_conf: Number of conformations to keep per ligand
+    """
+    def parse_vina_scores(pdbqt_file: str) -> List[float]:
+        """Extract scores from PDBQT file"""
+        scores = []
+        with open(pdbqt_file, 'r') as f:
+            for line in f:
+                if line.startswith('REMARK VINA RESULT:'):
+                    score = float(line.split()[3])
+                    scores.append(score)
+        return scores
+
+    # Process each output file
+    for output_filepath, group_filepaths in zip(output_filepaths, ligand_binding_site_mapping):
+        # Get scores for this docking run
+        scores = parse_vina_scores(output_filepath)
+        
+        # Convert PDBQT to RDKit molecules
+        pdbqt_mol = PDBQTMolecule.from_file(output_filepath, skip_typing=True)
+        group_ligands = RDKitMolCreate.from_pdbqt_mol(pdbqt_mol)
+        
+        # Get mapping information
+        group_mapping = ligand_binding_site_mapping[group_filepaths]
+        
+        # Process each ligand in the group
+        for i, (ligand_index, ligand_smiles_string) in enumerate(
+            zip(group_mapping["ligand_indices"], group_mapping["ligand_smiles_strings"])
+        ):
+            template_lig = (
+                Chem.RemoveHs(Chem.MolFromSmiles(ligand_smiles_string))
+                if remove_hs
+                else Chem.MolFromSmiles(ligand_smiles_string)
+            )
+            
+            # Process each conformation
+            for conf_idx in range(min(num_conf, len(scores))):
+                # Get ligand for this conformation
+                group_ligand = (
+                    Chem.RemoveHs(group_ligands[i]) if remove_hs else group_ligands[i]
+                )
+                
+                group_ligand_ = Chem.Mol(group_ligand)
+                group_ligand_conformers = [conf for conf in group_ligand.GetConformers()]
+                
+                # Keep only the current conformer
+                group_ligand_.RemoveAllConformers()
+                group_ligand_.AddConformer(group_ligand_conformers[conf_idx])
+                
+                # Assign correct bond orders
+                final_ligand = AllChem.AssignBondOrdersFromTemplate(
+                    template_lig, group_ligand_
+                )
+                
+                # Save this conformation with its score
+                output_path = os.path.join(
+                    cfg.output_dir, 
+                    item, 
+                    f"{item}_pose{conf_idx+1}_score{scores[conf_idx]:.2f}.sdf"
+                )
+                Chem.MolToMolFile(final_ligand, output_path)
+
 
 @hydra.main(
     version_base="1.3",
@@ -430,6 +535,11 @@ def main(cfg: DictConfig):
         with open_dict(cfg):
             cfg.output_dir = cfg.output_dir.replace(
                 f"vina_{cfg.method}", f"vina_pocket_only_{cfg.method}"
+            )
+    if cfg.GT_pocket_baseline:
+        with open_dict(cfg):
+            cfg.output_dir = cfg.output_dir.replace(
+                f"vina_{cfg.method}", f"GT_pocket_{cfg.method}"
             )
 
     if cfg.protein_filepath and cfg.ligand_filepaths and cfg.apo_protein_filepath:
@@ -510,6 +620,14 @@ def main(cfg: DictConfig):
     input_dirs = [
         item for item in input_dirs if "relaxed" not in item
     ]  # NOTE: Vina docking starts with a random conformation, so pre-relaxation is unnecessary
+    
+    # Filter directories
+    # protein_dir_pattern = re.compile(r'^[0-9]+[A-Z]+_[A-Z0-9]+$')
+    # valid_protein_dirs = [
+    #     dirname for dirname in input_dirs 
+    #     if protein_dir_pattern.match(dirname)
+    # ]
+    # input_dirs = valid_protein_dirs
 
     num_dir_items_found = 0
     for item in input_dirs:
@@ -635,6 +753,26 @@ def main(cfg: DictConfig):
                 assert (
                     len(protein_filepaths) == len(ligand_filepaths) == 1
                 ), "A single rank-1 protein-ligand complex is expected from ensembling."
+            elif cfg.method == "vina":
+                
+                protein_filepaths = os.path.join(
+                                            item_path,
+                                            f"{item}_protein.pdb",
+                                        )
+
+                ligand_filepaths = os.path.join(item_path, f"{item}_ligand.sdf")
+
+                if not os.path.exists(protein_filepaths) or not os.path.exists(ligand_filepaths):
+                    logger.warning(
+                        f"Vina protein or ligand file not found: {protein_filepaths}, {ligand_filepaths}. Skipping {item}..."
+                    )
+                    continue
+                
+                if os.path.exists(os.path.join(cfg.output_dir, item)): 
+                    continue  # Skipping existing results 
+            
+                protein_filepath = protein_filepaths
+                ligand_filepath = ligand_filepaths
             else:
                 raise ValueError(f"Invalid method for Vina binding site predictions: {cfg.method}")
 
@@ -674,13 +812,24 @@ def main(cfg: DictConfig):
             if group_output_filepaths is None:
                 logger.warning(f"AutoDock Vina inference failed for {item}. Skipping...")
                 continue
-            write_vina_outputs(
-                group_output_filepaths,
-                ligand_binding_site_mapping,
-                item,
-                len(ligand_filepaths),
-                cfg,
-            )
+            if cfg.method == 'vina':
+                write_vina_outputs_conf(
+                    group_output_filepaths,
+                    ligand_binding_site_mapping,
+                    item,
+                    cfg,
+                    remove_hs=True,
+                    num_conf=cfg.num_conf
+                )
+            else: 
+                write_vina_outputs(
+                    group_output_filepaths,
+                    ligand_binding_site_mapping,
+                    item,
+                    len(ligand_filepaths),
+                    cfg,
+                )
+
     logger.info(f"AutoDock Vina inference outputs written to `{cfg.output_dir}`.")
 
 

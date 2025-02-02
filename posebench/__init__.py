@@ -172,7 +172,7 @@ def resolve_method_ligand_dir(
             "data",
             "test_cases",
             dataset,
-            f"top_consensus{pocket_only_suffix}_ensemble_predictions_{repeat_index}",
+            f"top_consensus{pocket_only_suffix}_ensemble_predictions_{repeat_index}",)
     elif method == "gnina":
         return os.path.join(
             "forks",
