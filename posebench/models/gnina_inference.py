@@ -513,10 +513,10 @@ def main(cfg: DictConfig):
         except Exception as e:
             logger.warning(f"AutoDock Vina inference failed for {cfg.input_id} due to: {e}")
             raise e
-        group_output_filepaths = run_vina_inference(
+        group_output_filepaths = run_gnina_inference(
             cfg.apo_protein_filepath, ligand_binding_site_mapping, cfg.input_id, cfg
         )
-        write_vina_outputs(
+        run_gnina_inference(
             group_output_filepaths,
             ligand_binding_site_mapping,
             cfg.input_id,
@@ -572,7 +572,7 @@ def main(cfg: DictConfig):
 
     num_dir_items_found = 0
     for item in input_dirs:
-        if item in  ["7U0U_FK5", "7QGP_DJ8", "7JXX_VP7", "7UAW_MF6", "7MMH_ZJY", "7RWS_4UR","7ZHP_IQY","6YJA_2BA"]:
+        if item in  ["7U0U_FK5", "7QGP_DJ8", "7JXX_VP7", "7UAW_MF6", "7MMH_ZJY", "7RWS_4UR","7ZHP_IQY", "6YJA_2BA"]:
             continue
         item_path = (
             os.path.join(os.path.dirname(cfg.input_dir), item)
