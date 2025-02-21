@@ -5,13 +5,54 @@ import math
 from typing import List
 import re 
 import gzip 
-
+import time 
+import logging
 # If you're using RDKit:
 from rdkit import Chem
 from rdkit.Chem import AllChem
 
 # If you have custom classes for parsing .pdbqt, import them
 from meeko import MoleculePreparation, PDBQTMolecule, PDBQTWriterLegacy, RDKitMolCreate
+# Configure logging: logs will be written to 'docking.log'
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s [%(levelname)s] %(message)s',
+    handlers=[
+        logging.FileHandler('gnina_timing.log'),
+        logging.StreamHandler()  # optional: this sends log output to the console as well
+    ]
+)
+
+def get_custom_logger(logger_name: str, log_filename: str) -> logging.Logger:
+    """
+    Returns a logger configured with a FileHandler that writes to log_filename.
+    Any existing handlers will be removed.
+    """
+    logger = logging.getLogger(logger_name)
+    # Remove any existing handlers attached to this logger
+    if logger.hasHandlers():
+        logger.handlers.clear()
+    
+    logger.setLevel(logging.INFO)
+    
+    # Create file handler with the custom filename
+    file_handler = logging.FileHandler(log_filename)
+    file_handler.setLevel(logging.INFO)
+    
+    # Define a formatter and set it for the file handler
+    formatter = logging.Formatter('%(asctime)s [%(levelname)s] %(message)s')
+    file_handler.setFormatter(formatter)
+    
+    logger.addHandler(file_handler)
+    
+    # Optionally, also log to the console by adding a StreamHandler
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.INFO)
+    console_handler.setFormatter(formatter)
+    logger.addHandler(console_handler)
+    
+    return logger
+
 
 def compute_ligand_center_and_size(ligand_sdf):
     """
@@ -94,7 +135,7 @@ def prepare_and_run_vina(protein_pdb, ligand_sdf, out_dir, exhaustiveness=8):
         f"--exhaustiveness {exhaustiveness} --out {vina_out}"
     )
     subprocess.run(cmd_vina, shell=True, check=True)
-
+    
     return vina_out
 
 
@@ -275,6 +316,8 @@ def main(posebusters_dir="posebusters_dataset", results_dir="forks/Vina/inferenc
         if os.path.isdir(os.path.join(posebusters_dir, d))
     ]
 
+    logger = get_custom_logger(f"{method}", f"{method}_timing.log")
+
     if not protein_dirs:
         print(f"[ERROR] No subdirectories found in {posebusters_dir}.")
         sys.exit(1)
@@ -291,7 +334,8 @@ def main(posebusters_dir="posebusters_dataset", results_dir="forks/Vina/inferenc
         print(f"\n[INFO] Processing target: {protein_dir}")
         out_dir = os.path.join(results_dir, protein_dir)
         os.makedirs(out_dir, exist_ok=True)
-
+        
+        start_time = time.time()
         try:
             if method == 'vina':
                 vina_out = prepare_and_run_vina(protein_pdb, ligand_sdf, out_dir)
@@ -307,6 +351,9 @@ def main(posebusters_dir="posebusters_dataset", results_dir="forks/Vina/inferenc
                 run_gnina_docking(protein_pdb, ligand_sdf, out_dir)
         except Exception as e:
             print(f"[ERROR] Docking failed for {protein_dir}. Reason: {str(e)}")
+        elapsed_time = time.time() - start_time
+        print(f"[INFO] Docking completed in {elapsed_time:.2f} seconds.")
+        logger.info(f"{protein_dir},{elapsed_time:.2f}")
 
 
 if __name__ == "__main__":
