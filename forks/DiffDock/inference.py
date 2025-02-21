@@ -21,6 +21,16 @@ from utils.sampling import randomize_position, sampling
 from utils.utils import get_model
 from utils.visualise import PDBFile
 from tqdm import tqdm
+import time 
+import logging
+
+# Configure the logging to output to a file
+logging.basicConfig(
+    filename='diffdock_timing.log',  # Log file name
+    filemode='a',           # Append mode; use 'w' to overwrite each time
+    level=logging.INFO,     # Logging level can be INFO, DEBUG, etc.
+    format='%(asctime)s - %(levelname)s - %(message)s'  # Log message format
+)
 
 RDLogger.DisableLog('rdApp.*')
 import yaml
@@ -305,6 +315,11 @@ for ligand_description_group in ligand_description_groups:
                 else:
                     visualization_list = None
 
+                # Ensure that all previous CUDA work is done
+                if torch.cuda.is_available():
+                    torch.cuda.synchronize()
+                start_time = time.perf_counter()
+
                 # run reverse diffusion
                 data_list, confidence = sampling(data_list=data_list, model=model,
                                                 inference_steps=args.actual_steps if args.actual_steps is not None else args.inference_steps,
@@ -320,6 +335,15 @@ for ligand_description_group in ligand_description_groups:
                                                                 args.temp_sigma_data_tor])
 
                 ligand_pos = np.asarray([complex_graph['ligand'].pos.cpu().numpy() + orig_complex_graph.original_center.cpu().numpy() for complex_graph in data_list])
+                
+                # Ensure that all CUDA work for sampling() is completed
+                if torch.cuda.is_available():
+                    torch.cuda.synchronize()
+                end_time = time.perf_counter()
+                elapsed_time = end_time - start_time
+
+                print(f"The {complex_name_list[idx]} sampling() function took {elapsed_time:.2f} seconds.")
+                logging.info(f"{complex_name_list[idx]} took {elapsed_time:.2f} seconds.")
 
                 # reorder predictions based on confidence output
                 if confidence is not None and isinstance(confidence_args.rmsd_classification_cutoff, list):
@@ -337,7 +361,7 @@ for ligand_description_group in ligand_description_groups:
                     if score_model_args.remove_hs: mol_pred = RemoveAllHs(mol_pred)
                     if rank == 0: write_mol_with_coords(mol_pred, pos, os.path.join(write_dir, f'rank{rank+1}.sdf'))
                     write_mol_with_coords(mol_pred, pos, os.path.join(write_dir, f'rank{rank+1}_confidence{confidence[rank]:.2f}.sdf'))
-
+                
                 # save visualisation frames
                 if args.save_visualisation:
                     if confidence is not None:
