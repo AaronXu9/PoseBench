@@ -206,5 +206,6 @@ scripts/inference/
 
 # plots 
 /notebooks/*.png
+/notebooks/*.pdf
+/notebooks/*.pkl
 scripts/*inference*/
-
