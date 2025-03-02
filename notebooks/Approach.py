@@ -106,6 +106,54 @@ class DiffDockApproach(DockingApproach):
                 return float('nan')
         return float('nan')
     
+class DiffDockPocketApproach(DockingApproach):
+    def get_name(self) -> str:
+        return "diffdock_pocket_only"
+
+    def list_top_n_files(self, protein_dir: str, top_n: int) -> List[str]:
+        """
+        DiffDock doesn't store 'Score' in the SDF properties.
+        Instead, there's a confidence value in the filename
+        like 'rank2_confidence-0.16.sdf'.
+        We'll parse that out. If not present, return NaN.
+        """
+        all_files = os.listdir(protein_dir)
+        sdf_files = [
+            f for f in all_files 
+            if f.startswith("rank") and f.endswith(".sdf")
+        ]
+
+        def extract_rank(fname: str) -> int:
+            match = re.search(r"rank(\d+)", fname)
+            if match:
+                return int(match.group(1))
+            return 999999
+        
+        sdf_files.sort(key=extract_rank)
+        return [os.path.join(protein_dir, f) for f in sdf_files[:top_n]]
+
+    def parse_score(self, sdf_path: str) -> float:
+        """
+        DiffDock doesn't store 'Score' in the SDF properties.
+        Instead, there's a confidence value in the filename
+        like 'rank2_confidence-0.16.sdf'.
+        We'll parse that out. If not present, return NaN.
+        """
+        fname = os.path.basename(sdf_path)
+        # Look for something like _confidence-0.16
+        match = re.search(r"_confidence-([\d\.]+)", fname)
+        if match:
+            conf_str = match.group(1)
+            # Remove trailing '.' if present, e.g. "1.40." => "1.40"
+            conf_str = conf_str.rstrip('.')
+            try:
+                return float(conf_str)
+            except ValueError:
+                print(f"[WARNING] Could not parse confidence '{conf_str}' from {fname}, returning NaN.")
+                return float('nan')
+        return float('nan')
+    
+
 class ChaiApproach(DockingApproach):
     def get_name(self) -> str:
         return "chai-1"
@@ -215,7 +263,7 @@ class GninaApproach(DockingApproach):
 
 class SurfDockApproach(DockingApproach):
     def get_name(self) -> str:
-        return "surfDock"
+        return "surfdock"
 
     def list_top_n_files(self, protein_dir: str, top_n: int) -> List[str]:
         """
