@@ -14,7 +14,6 @@ from scipy.spatial.distance import squareform
 from scipy.cluster.hierarchy import linkage, dendrogram
 import matplotlib.pyplot as plt
 
-
 def run_tmalign(pdbA, pdbB, tmalign_bin="TMalign"):
     """
     Run TM-align and parse RMSD or TM-score from stdout.
