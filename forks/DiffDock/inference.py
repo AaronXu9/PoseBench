@@ -26,7 +26,7 @@ import logging
 
 # Configure the logging to output to a file
 logging.basicConfig(
-    filename='diffdock_timing.log',  # Log file name
+    filename='./forks/DiffDock/inference/logs/diffdock_timing.log',  # Log file name
     filemode='a',           # Append mode; use 'w' to overwrite each time
     level=logging.INFO,     # Logging level can be INFO, DEBUG, etc.
     format='%(asctime)s - %(levelname)s - %(message)s'  # Log message format
