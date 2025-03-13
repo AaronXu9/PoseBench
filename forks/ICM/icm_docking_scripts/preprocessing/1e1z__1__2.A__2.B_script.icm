@@ -1,0 +1,32 @@
+
+call _startup
+show version
+
+openFile "/home/aoxu/projects/PoseBench/data/plinder_set/1e1z__1__2.A__2.B/1e1z__1__2.A__2.B_protein.pdb" 0 yes no no no " append"
+openFile "/home/aoxu/projects/PoseBench/data/plinder_set/1e1z__1__2.A__2.B/1e1z__1__2.A__2.B_ligand.sdf" 0 yes no no no " append"
+
+s_out = "1e1z__1__2_A__2_B_ligand"
+v1e1z__1__2_A__2_B_ligand.NAME_[1] = s_out
+
+I_out = Index( v1e1z__1__2_A__2_B_ligand selection cursor ) 
+if( Type( v1e1z__1__2_A__2_B_ligand.crysym ) == "sarray" ) then 
+  read mol input = Sum( Sarray( v1e1z__1__2_A__2_B_ligand.mol [I_out] ) + Sarray(Nof(I_out),"> <crysym>\\n") + Sarray( v1e1z__1__2_A__2_B_ligand.crysym [I_out] ) + Sarray(Nof(I_out),"\\n\\n") , "$$$$\\n" ) 
+else 
+  parrayToMol v1e1z__1__2_A__2_B_ligand.mol [ I_out ] 
+endif 
+
+
+S_out = Name( Obj( a_1e1z__1__2_A__2_B_protein. ) ) 
+   for i=1,Nof(S_out) 
+     convertObject a_$S_out[i]. 2==1 yes yes yes yes yes no ""+( 2==2 ? "water=tight ":( 2==3 ? "water=tight2.5 ":"") )+( no ? "tautomer ":"" ) + ( no ? "amino_name_fix " : "" ) 
+   endfor 
+   assign sstructure a_A 
+   cool a_ no 
+
+   moveMol Mol( a_1e1z__1__2_A__2_B_ligand.m/1/c1 ) ""
+
+ if ( ! Exist( "/home/aoxu/projects/PoseBench/forks/ICM/inference/1e1z__1__2_A__2_B/" ) ) make directory "/home/aoxu/projects/PoseBench/forks/ICM/inference/1e1z__1__2_A__2_B" 
+ s_out = "/home/aoxu/projects/PoseBench/forks/ICM/inference/1e1z__1__2_A__2_B/1e1z__1__2_A__2_B" 
+ writeProject s_out s_currentProject!="" 
+  
+  quit
