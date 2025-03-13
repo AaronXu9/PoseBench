@@ -2,9 +2,11 @@
 call _startup
 show version
 
-openFile "/home/aoxu/projects/PoseBench/data/posebusters_benchmark_set/ProteinNameHolder/ProteinNameHolder_protein.pdb" 0 yes no no no " append"
-openFile "/home/aoxu/projects/PoseBench/data/posebusters_benchmark_set/ProteinNameHolder/ProteinNameHolder_ligand.sdf" 0 yes no no no " append"
+DATA_DIR = "DataDirHolder"
+openFile "/home/aoxu/projects/PoseBench/data/DatasetNameHolder/ProteinNameHolder/ProteinNameHolder_protein.pdb" 0 yes no no no " append"
+openFile "/home/aoxu/projects/PoseBench/data/DatasetNameHolder/ProteinNameHolder/ProteinNameHolder_ligand.sdf" 0 yes no no no " append"
 
+out_dir = "ICBOutDirHolder"
 s_out = "ProteinNameHolder_ligand"
 vProteinNameHolder_ligand.NAME_[1] = s_out
 
@@ -25,11 +27,12 @@ S_out = Name( Obj( a_ProteinNameHolder_protein. ) )
 
    moveMol Mol( a_ProteinNameHolder_ligand.m/1/c1 ) ""
 
- if ( ! Exist( "/home/aoxu/projects/PoseBench/forks/ICM/inference/ProteinNameHolder/" ) ) make directory "/home/aoxu/projects/PoseBench/forks/ICM/inference/ProteinNameHolder" 
- s_out = "/home/aoxu/projects/PoseBench/forks/ICM/inference/ProteinNameHolder/ProteinNameHolder" 
- writeProject s_out s_currentProject!="" 
+# save the project
+# if ( ! Exist( "/home/aoxu/projects/PoseBench/forks/ICM/inference/ProteinNameHolder/" ) ) make directory "/home/aoxu/projects/PoseBench/forks/ICM/inference/ProteinNameHolder" 
+# s_out = "/home/aoxu/projects/PoseBench/forks/ICM/inference/ProteinNameHolder/ProteinNameHolder.icb" 
+# writeProject s_out s_currentProject!=""
   
+ if ( ! Exist( out_dir+"/ProteinNameHolder/" ) ) make directory out_dir+"/ProteinNameHolder/"
+ s_out = out_dir + "/ProteinNameHolder/ProteinNameHolder.icb" 
+ writeProject s_out s_currentProject!=""
  # quit
-
-
-quit

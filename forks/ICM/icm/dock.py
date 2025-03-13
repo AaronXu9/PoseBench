@@ -4,21 +4,23 @@ import shutil
 import platform
 
 class ICMBatchDocking:
-    def __init__(self, base_dir, icm_script_template, icm_executable, icm_docking_dir, subset_dir=None, docking_maps="manual", icm_dockscan_path=None):
+    def __init__(self, data_dir, icm_script_template, icm_executable, icm_docking_dir, subset_dir=None, docking_maps="manual", icm_dockscan_path=None, repeat_index=0):
         """
         Initialize the batch docking processor
         
         Args:
-            base_dir (str): Path to the base directory containing protein subdirectories
+            data_dir (str): Path to the base directory containing protein subdirectories
             icm_script_template (str): Path to the ICM script template filecm_executable (str): Path to ICM executable
         """
-        self.base_dir = base_dir
+        self.data_dir = data_dir
+        self.project_name = os.path.basename(os.path.dirname(data_dir))
         self.icm_script_template = icm_script_template
         self.icm_executable = icm_executable
         self.icm_dockscan_path = icm_dockscan_path
         self.subset_dir = subset_dir
         self.icm_docking_dir = icm_docking_dir
         self.docking_maps = docking_maps
+        self.repeat_index = repeat_index
     
         # Copy current environment
         self.env = os.environ.copy()
@@ -47,8 +49,8 @@ class ICMBatchDocking:
         """
         # Check if directory name contains exactly one underscore
         parts = dirname.split('_')
-        if len(parts) != 2:
-            return False
+        # if len(parts) != 2:
+        #     return False
             
         # Check if first part contains at least one number
         if not any(char.isdigit() for char in parts[0]):
@@ -59,8 +61,8 @@ class ICMBatchDocking:
     def get_protein_ligand_pairs(self):
         """Get all protein-ligand pairs from the protein directory"""
         pairs = []
-        for dirname in os.listdir(self.base_dir if self.subset_dir is None else self.subset_dir):   
-            dir_path = os.path.join(self.base_dir, dirname)
+        for dirname in os.listdir(self.data_dir if self.subset_dir is None else self.subset_dir):   
+            dir_path = os.path.join(self.data_dir, dirname)
             
             # Skip if not a directory or doesn't match required format
             if not os.path.isdir(dir_path) or not self.is_valid_protein_directory(dirname):
@@ -93,15 +95,40 @@ class ICMBatchDocking:
         print(f"Found {len(pairs)} valid protein-ligand pairs")
         return sorted(pairs, key=lambda x: x['protein_name'])
 
-    def create_modified_script(self, template_path, output_path, protein_name):
-        """Create a modified ICM script with the correct protein name"""
+    def create_modified_script(self, template_path, script_out_path, icb_out_dir, protein_name):
+        """
+        Create a modified ICM script with the correct protein name.
+        
+        For proteins in the "plinder_set" dataset, if protein_name contains dots ('.'),
+        the file loading commands (openFile lines) will use the original protein_name,
+        while the rest of the script uses a 'safe' version (with dots removed) for naming.
+        For other datasets, protein_name is used throughout.
+        """
         with open(template_path, 'r') as f:
             template_content = f.read()
         
-        # Replace the placeholder with actual protein name
-        modified_content = template_content.replace("ProteinNameHolder", protein_name)
+        # First, replace the dataset placeholder in the entire template.
+        template_content = template_content.replace("DatasetNameHolder", self.project_name)
+        template_content = template_content.replace("ICBOutDirHolder", icb_out_dir)
+
+        # Check if the current dataset is "plinder_set"
+        if self.project_name == "plinder_set":
+            # Create a safe version of the protein name (remove '.')
+            safe_protein_name = protein_name.replace('.', '_')
+            modified_lines = []
+            for line in template_content.splitlines():
+                # If this is a file-loading line, use the original protein_name.
+                if line.lstrip().startswith("openFile"):
+                    modified_lines.append(line.replace("ProteinNameHolder", protein_name))
+                else:
+                    # For all other lines, use the safe version.
+                    modified_lines.append(line.replace("ProteinNameHolder", safe_protein_name))
+            modified_content = "\n".join(modified_lines)
+        else:
+            # For other datasets, use the original protein_name everywhere.
+            modified_content = template_content.replace("ProteinNameHolder", protein_name)
         
-        with open(output_path, 'w') as f:
+        with open(script_out_path, 'w') as f:
             f.write(modified_content)
 
 
@@ -167,7 +194,7 @@ class ICMBatchDocking:
             out_dir = os.path.join(
                 self.icm_docking_dir, 
                 "inference",
-                "icm_manual_posebusters_benchmark_outputs_1",
+                f"{self.project_name}_docking_results",
             )
             os.makedirs(out_dir, exist_ok=True)
 
@@ -176,12 +203,12 @@ class ICMBatchDocking:
                 print(f"Project directory {project_dir} not found. Did you generate the maps first?")
                 continue
             
-            if protein_name < "7LCU_XTA":
+            if self.project_name == 'posebuster_benchmark'  and protein_name < "7LCU_XTA":
                 continue
             # Example command to run docking in that folder
             try:
                 self._run_icm_dockscan(
-                    protein_name = protein_name,
+                    protein_name=protein_name,
                     protein_project_dir=project_dir,
                     outdir_path=out_dir,
                     ligand_path=pair["sdf_path"],
@@ -213,14 +240,16 @@ class ICMBatchDocking:
             
             # Create modixfied script for this protein
             script_path = os.path.join(work_dir, f"{pair['ligand_name']}_script.icm")
-            self.create_modified_script(self.icm_script_template, script_path, pair['protein_name'])
+            icb_out_dir = self.config['icb_out_dir']
+            self.create_modified_script(self.icm_script_template, script_path, icb_out_dir, pair['protein_name'])
             
             # Copy necessary files to working directory
             # shutil.copy2(pair['pdb_path'], work_dir)
             # shutil.copy2(pair['sdf_path'], work_dir)
             
             # create the subdirectories for docking maps
-            os.makedirs(os.path.join(self.icm_docking_dir, f"ICM_{self.docking_maps}_docking_maps", f"protein_{pair['protein_name']}"), exist_ok=True)
+            os.makedirs(os.path.join(self.icm_docking_dir, f"ICM_{self.docking_maps}_docking_maps", 
+                                     f"{self.project_name}", f"protein_{pair['protein_name']}"), exist_ok=True)
 
             # Run ICM command
             try:
@@ -243,7 +272,7 @@ class ICMBatchDocking:
 # Example usage
 if __name__ == "__main__":
     # Configure these paths according to your setup
-    BASE_DIR = "/home/aoxu/projects/PoseBench/data/posebusters_benchmark_set"
+    data_dir = "/home/aoxu/projects/PoseBench/data/posebusters_benchmark_set"
     SUBSET_DIR = "/home/aoxu/projects/PoseBench/forks/DiffDock/inference/diffdock_posebusters_benchmark_output_orig_structure_1/"
     ICM_SCRIPT_TEMPLATE = "icm_docking_scripts_template/protein_template_auto_pocket.icm"
     ICM_EXECUTABLE = "/home/aoxu/icm-3.9-4/icm64"
@@ -253,7 +282,7 @@ if __name__ == "__main__":
     
     # Create docking processor instance
     docking_processor = ICMBatchDocking(
-        base_dir=BASE_DIR,
+        data_dir=data_dir,
         icm_script_template=ICM_SCRIPT_TEMPLATE,
         icm_executable=ICM_EXECUTABLE,
         subset_dir=SUBSET_DIR,
