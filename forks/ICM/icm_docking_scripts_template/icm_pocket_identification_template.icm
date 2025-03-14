@@ -1,8 +1,16 @@
 call _startup
 show version
 
-openFile "/Users/aoxu/projects/DrugDiscovery/PoseBench/forks/ICM/inference/icm_manual_posebusters_benchmark_outputs_1/ProteinNameHolder/ProteinNameHolder.icb" 0 yes no no no " append" 
-1 1 icb
+# set up constants 
+DATA_DIR = "DataDirHolder"
+ICB_OUT_DIR = "ICBOutDirHolder"
+MAPS_OUT_DIR = "MapsOutDirHolder"
+
+#openFile "/Users/aoxu/projects/DrugDiscovery/PoseBench/forks/ICM/inference/icm_manual_posebusters_benchmark_outputs_1/ProteinNameHolder/ProteinNameHolder.icb" 0 yes no no no " append" 
+#1 1 icb
+
+# initiate dockign project 
+openFile ICB_OUT_DIR+"/ProteinNameHolder/ProteinNameHolder.icb" 0 yes no no no " append"
 
 as_graph = a_ProteinNameHolder_ligand_1.
 S_out = Sarray( s_projectsDir + "icmdock/" ) 
@@ -10,9 +18,9 @@ s_out = ( Nof(as_graph & a_ProteinNameHolder_protein. ) > 0 )
 as_graph = Sphere(as_graph a_ProteinNameHolder_protein. 5. ) 
 print s_out 
 
-
-if ( ! Exist( "/Users/aoxu/projects/DrugDiscovery/PoseBench/ICM/ICM_manual_docking_maps/protien_ProteinNameHolder/" ) ) make directory "/Users/aoxu/projects/DrugDiscovery/PoseBench/ICM/ICM_manual_docking_maps/protien_ProteinNameHolder/" 
-set directory "/Users/aoxu/projects/DrugDiscovery/PoseBench/ICM/ICM_manual_docking_maps/protien_ProteinNameHolder/" 
+# create dockign maps 
+if ( ! Exist( MAPS_OUT_DIR+"/protien_ProteinNameHolder/" ) ) make directory MAPS_OUT_DIR+"/protien_ProteinNameHolder/"
+set directory MAPS_OUT_DIR+"/protien_ProteinNameHolder/" 
 currentDockProj.data[8] = "yes" 
 if( Type( as_graph ) == "aselection" ) tempsel = as_graph & a_ProteinNameHolder_protein. 
 if( Type( as_graph ) == "unknown" ) tempsel = as_graph & a_ProteinNameHolder_protein. 
@@ -25,8 +33,8 @@ dock2SetupReceptor "protein_ProteinNameHolder" a_ProteinNameHolder_protein. temp
  s_out = Path() 
  S_out = Name( model, "DOCKING" ) 10.00 2 no no no no 
 
- if ( ! Exist( "/Users/aoxu/projects/DrugDiscovery/PoseBench/ICM/inference/icm_manual_posebusters_benchmark_outputs_1/ProteinNameHolder/" ) ) make directory "/Users/aoxu/projects/DrugDiscovery/PoseBench/ICM/inference/icm_manual_posebusters_benchmark_outputs_1/ProteinNameHolder" 
- s_out = "/Users/aoxu/projects/DrugDiscovery/PoseBench/ICM/inference/icm_manual_posebusters_benchmark_outputs_1/ProteinNameHolder/ProteinNameHolder" 
+ if ( ! Exist( ICB_OUT_DIR+"/ProteinNameHolder/" ) ) make directory ICB_OUT_DIR+"/ProteinNameHolder" 
+ s_out = ICB_OUT_DIR+"/ProteinNameHolder/ProteinNameHolder.icb" 
  writeProject s_out s_currentProject!="" 
   
 quit

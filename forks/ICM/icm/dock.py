@@ -95,7 +95,7 @@ class ICMBatchDocking:
         print(f"Found {len(pairs)} valid protein-ligand pairs")
         return sorted(pairs, key=lambda x: x['protein_name'])
 
-    def create_modified_script(self, template_path, script_out_path, icb_out_dir, protein_name):
+    def create_modified_script(self, data_dir, template_path, script_out_path, icb_out_dir, protein_name):
         """
         Create a modified ICM script with the correct protein name.
         
@@ -110,7 +110,7 @@ class ICMBatchDocking:
         # First, replace the dataset placeholder in the entire template.
         template_content = template_content.replace("DatasetNameHolder", self.project_name)
         template_content = template_content.replace("ICBOutDirHolder", icb_out_dir)
-
+        template_content = template_content.replace("DataDirHolder", data_dir)
         # Check if the current dataset is "plinder_set"
         if self.project_name == "plinder_set":
             # Create a safe version of the protein name (remove '.')
@@ -240,8 +240,8 @@ class ICMBatchDocking:
             
             # Create modixfied script for this protein
             script_path = os.path.join(work_dir, f"{pair['ligand_name']}_script.icm")
-            icb_out_dir = self.config['icb_out_dir']
-            self.create_modified_script(self.icm_script_template, script_path, icb_out_dir, pair['protein_name'])
+            
+            self.create_modified_script(data_dir, self.icm_script_template, script_path, self.config['icb_out_dir'], pair['protein_name'])
             
             # Copy necessary files to working directory
             # shutil.copy2(pair['pdb_path'], work_dir)
