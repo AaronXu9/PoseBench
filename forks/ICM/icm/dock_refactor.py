@@ -21,7 +21,8 @@ class ICMDockingConfig:
     icm_script_template: str
     icm_executable: str
     icm_docking_dir: str
-    
+    icm_map_dir: str
+
     # Optional parameters with defaults
     subset_dir: Optional[str] = None
     docking_maps: str = "manual"
@@ -40,12 +41,12 @@ class ICMDockingConfig:
     # Platform-specific configurations
     platform_configs: Dict[str, Dict[str, str]] = field(default_factory=lambda: {
         "Darwin": {
-            "icm_home": "/Applications/MolsoftICM64.app/Contents/Resources/icm",
+            "icm_executable": "/Applications/MolsoftICM64.app/Contents/Resources/icm",
             "icm_dockscan_path": "/Applications/MolsoftICM64.app/Contents/Resources/icm/_dockScan"
         },
         "Linux": {
-            "icm_home": "",  # Will use system default
-            "icm_dockscan_path": ""  # Will be set based on executable path
+            "icm_executable": "/home/aoxu/icm-3.9-4/icm64",  # Will use system default
+            "icm_dockscan_path": "/home/aoxu/icm-3.9-4/_dockScan"  # Will be set based on executable path
         }
     })
     
@@ -65,8 +66,8 @@ class ICMDockingConfig:
             platform_config = self.platform_configs[system]
             
             # Set ICMHOME if specified for this platform
-            if platform_config["icm_home"]:
-                self.icm_home = platform_config["icm_home"]
+            if platform_config["icm_executable"]:
+                self.icm_executable = platform_config["icm_executable"]
             
             # Set dockscan path if not explicitly provided
             if not self.icm_dockscan_path and platform_config["icm_dockscan_path"]:
@@ -105,7 +106,7 @@ class ICMBatchDocking:
             config (ICMDockingConfig): Configuration object with all necessary parameters
         """
         self.config = config
-        
+        self.stage = None
         # Copy current environment
         self.env = os.environ.copy()
         # Initialize logger
@@ -127,9 +128,9 @@ class ICMBatchDocking:
         #     print(f"Initializing ICMBatchDocking with project: {config.dataset}")
 
         # Apply platform-specific environment settings
-        if platform.system() == "Darwin" and config.icm_home:
+        if platform.system() == "Darwin" and config.icm_executable:
             self.env.pop("ICMHOME", None)
-            self.env["ICMHOME"] = config.icm_home
+            self.env["ICMHOME"] = config.icm_executable
     
     def is_valid_protein_directory(self, dirname):
         """
@@ -196,7 +197,7 @@ class ICMBatchDocking:
         template_content = template_content.replace("DatasetNameHolder", self.config.dataset)
         template_content = template_content.replace("ICBOutDirHolder", icb_out_dir)
         template_content = template_content.replace("DataDirHolder", data_dir)
-        
+        template_content = template_content.replace("MapsOutDirHolder", self.config.icm_map_dir)
         # Check if the current dataset is "plinder_set"
         if self.config.dataset == "plinder_set":
             # Create a safe version of the protein name (remove '.')
@@ -204,7 +205,7 @@ class ICMBatchDocking:
             modified_lines = []
             for line in template_content.splitlines():
                 # If this is a file-loading line, use the original protein_name.
-                if line.lstrip().startswith("openFile"):
+                if line.lstrip().startswith("openFile") and self.stage == 'preprocessing':
                     modified_lines.append(line.replace("ProteinNameHolder", protein_name))
                 else:
                     # For all other lines, use the safe version.
@@ -311,6 +312,7 @@ class ICMBatchDocking:
 
     def run_docking_preparation(self, stage="preprocessing"):
         """Run docking preparation for all protein-ligand pairs"""
+        self.stage = stage
         pairs = self.get_protein_ligand_pairs()
         
         if not pairs:
@@ -370,7 +372,8 @@ class ICMBatchDocking:
 if __name__ == "__main__":
     # Load configuration from file
 
-    config = ICMDockingConfig.from_file('cogligand_config/model/icm_inference.yaml')
+    # config = ICMDockingConfig.from_file('cogligand_config/model/icm_inference.yaml')
+    config = ICMDockingConfig.from_file('cogligand_config/data/icm_identify_pocket.yaml')
     
     # # Or create configuration programmatically
     # config = ICMDockingConfig(
@@ -390,7 +393,7 @@ if __name__ == "__main__":
     docking_processor = ICMBatchDocking(config)
     
     # Run docking with default parameters from config
-    docking_processor.run_docking_preparation()
+    docking_processor.run_docking_preparation(stage="identify_pocket")
     
     # Or override specific parameters
     # docking_processor.run_docking(num_conf=20, thorough=10.0)

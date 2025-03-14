@@ -37,4 +37,4 @@ dock2SetupReceptor "protein_ProteinNameHolder" a_ProteinNameHolder_protein. temp
  s_out = ICB_OUT_DIR+"/ProteinNameHolder/ProteinNameHolder.icb" 
  writeProject s_out s_currentProject!="" 
   
-quit
+# quit
