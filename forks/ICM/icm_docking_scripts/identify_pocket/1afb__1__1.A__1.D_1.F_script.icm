@@ -10,7 +10,7 @@ MAPS_OUT_DIR = "/Users/aoxu/projects/DrugDiscovery/PoseBench/forks/ICM/ICM_manua
 #1 1 icb
 
 # initiate dockign project 
-openFile ICB_OUT_DIR+"/1afb__1__1.A__1.D_1.F/1afb__1__1.A__1.D_1.F.icb" 0 yes no no no " append"
+openFile ICB_OUT_DIR+"/1afb__1__1_A__1_D_1_F/1afb__1__1_A__1_D_1_F.icb" 0 yes no no no " append"
 
 as_graph = a_1afb__1__1_A__1_D_1_F_ligand_1.
 S_out = Sarray( s_projectsDir + "icmdock/" ) 
