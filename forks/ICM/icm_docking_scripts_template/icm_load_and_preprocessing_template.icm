@@ -3,8 +3,12 @@ call _startup
 show version
 
 DATA_DIR = "DataDirHolder"
-openFile "/home/aoxu/projects/PoseBench/data/DatasetNameHolder/ProteinNameHolder/ProteinNameHolder_protein.pdb" 0 yes no no no " append"
-openFile "/home/aoxu/projects/PoseBench/data/DatasetNameHolder/ProteinNameHolder/ProteinNameHolder_ligand.sdf" 0 yes no no no " append"
+# openFile "/home/aoxu/projects/PoseBench/data/DatasetNameHolder/ProteinNameHolder/ProteinNameHolder_protein.pdb" 0 yes no no no " append"
+# openFile "/home/aoxu/projects/PoseBench/data/DatasetNameHolder/ProteinNameHolder/ProteinNameHolder_ligand.sdf" 0 yes no no no " append"
+
+openFile DATA_DIR+"/ProteinNameHolder/ProteinNameHolder_protein.pdb" 0 yes no no no " append"
+openFile DATA_DIR+"/ProteinNameHolder/ProteinNameHolder_ligand.sdf" 0 yes no no no " append"
+
 
 out_dir = "ICBOutDirHolder"
 s_out = "ProteinNameHolder_ligand"
@@ -35,4 +39,4 @@ S_out = Name( Obj( a_ProteinNameHolder_protein. ) )
  if ( ! Exist( out_dir+"/ProteinNameHolder/" ) ) make directory out_dir+"/ProteinNameHolder/"
  s_out = out_dir + "/ProteinNameHolder/ProteinNameHolder.icb" 
  writeProject s_out s_currentProject!=""
- # quit
+  quit

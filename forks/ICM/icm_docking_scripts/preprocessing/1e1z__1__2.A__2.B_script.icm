@@ -2,9 +2,15 @@
 call _startup
 show version
 
-openFile "/home/aoxu/projects/PoseBench/data/plinder_set/1e1z__1__2.A__2.B/1e1z__1__2.A__2.B_protein.pdb" 0 yes no no no " append"
-openFile "/home/aoxu/projects/PoseBench/data/plinder_set/1e1z__1__2.A__2.B/1e1z__1__2.A__2.B_ligand.sdf" 0 yes no no no " append"
+DATA_DIR = "/home/aoxu/projects/PoseBench/data/plinder_set"
+# openFile "/home/aoxu/projects/PoseBench/data/plinder_set/1e1z__1__2_A__2_B/1e1z__1__2_A__2_B_protein.pdb" 0 yes no no no " append"
+# openFile "/home/aoxu/projects/PoseBench/data/plinder_set/1e1z__1__2_A__2_B/1e1z__1__2_A__2_B_ligand.sdf" 0 yes no no no " append"
 
+openFile DATA_DIR+"/1e1z__1__2.A__2.B/1e1z__1__2.A__2.B_protein.pdb" 0 yes no no no " append"
+openFile DATA_DIR+"/1e1z__1__2.A__2.B/1e1z__1__2.A__2.B_ligand.sdf" 0 yes no no no " append"
+
+
+out_dir = "/home/aoxu/projects/PoseBench/forks/ICM/inference/plinder_set_0"
 s_out = "1e1z__1__2_A__2_B_ligand"
 v1e1z__1__2_A__2_B_ligand.NAME_[1] = s_out
 
@@ -25,8 +31,12 @@ S_out = Name( Obj( a_1e1z__1__2_A__2_B_protein. ) )
 
    moveMol Mol( a_1e1z__1__2_A__2_B_ligand.m/1/c1 ) ""
 
- if ( ! Exist( "/home/aoxu/projects/PoseBench/forks/ICM/inference/1e1z__1__2_A__2_B/" ) ) make directory "/home/aoxu/projects/PoseBench/forks/ICM/inference/1e1z__1__2_A__2_B" 
- s_out = "/home/aoxu/projects/PoseBench/forks/ICM/inference/1e1z__1__2_A__2_B/1e1z__1__2_A__2_B" 
- writeProject s_out s_currentProject!="" 
+# save the project
+# if ( ! Exist( "/home/aoxu/projects/PoseBench/forks/ICM/inference/1e1z__1__2_A__2_B/" ) ) make directory "/home/aoxu/projects/PoseBench/forks/ICM/inference/1e1z__1__2_A__2_B" 
+# s_out = "/home/aoxu/projects/PoseBench/forks/ICM/inference/1e1z__1__2_A__2_B/1e1z__1__2_A__2_B.icb" 
+# writeProject s_out s_currentProject!=""
   
+ if ( ! Exist( out_dir+"/1e1z__1__2_A__2_B/" ) ) make directory out_dir+"/1e1z__1__2_A__2_B/"
+ s_out = out_dir + "/1e1z__1__2_A__2_B/1e1z__1__2_A__2_B.icb" 
+ writeProject s_out s_currentProject!=""
   quit

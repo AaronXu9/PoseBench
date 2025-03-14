@@ -2,9 +2,15 @@
 call _startup
 show version
 
-openFile "/home/aoxu/projects/PoseBench/data/plinder_set/1ci0__1__1.A_1.B__1.D/1ci0__1__1.A_1.B__1.D_protein.pdb" 0 yes no no no " append"
-openFile "/home/aoxu/projects/PoseBench/data/plinder_set/1ci0__1__1.A_1.B__1.D/1ci0__1__1.A_1.B__1.D_ligand.sdf" 0 yes no no no " append"
+DATA_DIR = "/home/aoxu/projects/PoseBench/data/plinder_set"
+# openFile "/home/aoxu/projects/PoseBench/data/plinder_set/1ci0__1__1_A_1_B__1_D/1ci0__1__1_A_1_B__1_D_protein.pdb" 0 yes no no no " append"
+# openFile "/home/aoxu/projects/PoseBench/data/plinder_set/1ci0__1__1_A_1_B__1_D/1ci0__1__1_A_1_B__1_D_ligand.sdf" 0 yes no no no " append"
 
+openFile DATA_DIR+"/1ci0__1__1.A_1.B__1.D/1ci0__1__1.A_1.B__1.D_protein.pdb" 0 yes no no no " append"
+openFile DATA_DIR+"/1ci0__1__1.A_1.B__1.D/1ci0__1__1.A_1.B__1.D_ligand.sdf" 0 yes no no no " append"
+
+
+out_dir = "/home/aoxu/projects/PoseBench/forks/ICM/inference/plinder_set_0"
 s_out = "1ci0__1__1_A_1_B__1_D_ligand"
 v1ci0__1__1_A_1_B__1_D_ligand.NAME_[1] = s_out
 
@@ -25,8 +31,12 @@ S_out = Name( Obj( a_1ci0__1__1_A_1_B__1_D_protein. ) )
 
    moveMol Mol( a_1ci0__1__1_A_1_B__1_D_ligand.m/1/c1 ) ""
 
- if ( ! Exist( "/home/aoxu/projects/PoseBench/forks/ICM/inference/1ci0__1__1_A_1_B__1_D/" ) ) make directory "/home/aoxu/projects/PoseBench/forks/ICM/inference/1ci0__1__1_A_1_B__1_D" 
- s_out = "/home/aoxu/projects/PoseBench/forks/ICM/inference/1ci0__1__1_A_1_B__1_D/1ci0__1__1_A_1_B__1_D" 
- writeProject s_out s_currentProject!="" 
+# save the project
+# if ( ! Exist( "/home/aoxu/projects/PoseBench/forks/ICM/inference/1ci0__1__1_A_1_B__1_D/" ) ) make directory "/home/aoxu/projects/PoseBench/forks/ICM/inference/1ci0__1__1_A_1_B__1_D" 
+# s_out = "/home/aoxu/projects/PoseBench/forks/ICM/inference/1ci0__1__1_A_1_B__1_D/1ci0__1__1_A_1_B__1_D.icb" 
+# writeProject s_out s_currentProject!=""
   
+ if ( ! Exist( out_dir+"/1ci0__1__1_A_1_B__1_D/" ) ) make directory out_dir+"/1ci0__1__1_A_1_B__1_D/"
+ s_out = out_dir + "/1ci0__1__1_A_1_B__1_D/1ci0__1__1_A_1_B__1_D.icb" 
+ writeProject s_out s_currentProject!=""
   quit
