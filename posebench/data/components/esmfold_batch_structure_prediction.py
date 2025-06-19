@@ -81,7 +81,8 @@ def init_model_on_gpu_with_cpu_offloading(
 def create_batched_sequence_datasest(
     sequences: T.List[T.Tuple[str, str]], max_tokens_per_batch: int = 1024
 ) -> T.Generator[T.Tuple[T.List[str], T.List[str]], None, None]:
-    """Create a dataset of batched sequences for increased computational throughput.
+    """Create a dataset of batched sequences for increased computational
+    throughput.
 
     :param sequences: A list of `(header, seq)` tuples.
     :param max_tokens_per_batch: The maximum number of tokens (i.e., residues) per batch.
@@ -148,11 +149,6 @@ def create_parser():
         "--skip-existing", help="Skip predictions for existing structures", action="store_true"
     )
     parser.add_argument(
-        "--predict-only-unit1",
-        help="For multi-model protein structure datasets, skip predictions for sequences not belonging to the `unit1` version of each complex",
-        action="store_true",
-    )
-    parser.add_argument(
         "-d", "--cuda-device-index", help="Index of CUDA device to use", type=int, default=0
     )
     return parser
@@ -177,7 +173,6 @@ def run(args: argparse.Namespace):
             (header, seq)
             for header, seq in all_sequences
             if not (args.pdb / f"{header}.pdb").exists()
-            and (header.endswith("_unit1") or not args.predict_only_unit1)
         ]
     logger.info(f"Loaded {len(all_sequences)} sequences from {args.fasta}")
 
@@ -208,6 +203,9 @@ def run(args: argparse.Namespace):
     num_completed = 0
     num_sequences = len(all_sequences)
     for headers, sequences in batched_sequences:
+        logger.info(
+            f"Predicting structures for {len(sequences)} sequences of {headers} with total length {sum(len(seq) for seq in sequences)}"
+        )
         start = timer()
         try:
             output = model.infer(sequences, num_recycles=args.num_recycles)

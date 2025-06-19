@@ -35,13 +35,16 @@ def write_input_csv(
 ):
     """Write a NeuralPLexer inference CSV file.
 
-    :param smiles_and_pdb_id_list: A list of tuples each containing a SMILES string and a PDB ID.
+    :param smiles_and_pdb_id_list: A list of tuples each containing a
+        SMILES string and a PDB ID.
     :param output_csv_path: Path to the output CSV file.
-    :param input_receptor_structure_dir: Path to the directory containing the protein structure
-        input files.
-    :param input_receptor: Optional path to a single input protein sequence.
+    :param input_receptor_structure_dir: Path to the directory
+        containing the protein structure input files.
+    :param input_receptor: Optional path to a single input protein
+        sequence.
     :param input_ligand: Optional single input ligand SMILES string.
-    :param input_template: Path to the optional template protein structure.
+    :param input_template: Path to the optional template protein
+        structure.
     :param input_id: Optional input ID.
     """
     os.makedirs(os.path.dirname(output_csv_path), exist_ok=True)
@@ -86,7 +89,7 @@ def write_input_csv(
                 if not os.path.exists(input_receptor):
                     logger.warning(f"Skipping input protein which was not found: {input_receptor}")
                     continue
-                f.write(f"{pdb_id},{input_receptor},{smiles},{input_receptor}\n")
+                f.write(f"{pdb_id},{input_receptor},{smiles.replace('.', '|')},{input_receptor}\n")
 
 
 @hydra.main(
@@ -95,11 +98,13 @@ def write_input_csv(
     config_name="neuralplexer_input_preparation.yaml",
 )
 def main(cfg: DictConfig):
-    """Parse a data directory containing subdirectories of protein-ligand complexes and prepare
-    corresponding inference CSV file for the NeuralPLexer model.
+    """Parse a data directory containing subdirectories of protein-ligand
+    complexes and prepare corresponding inference CSV file for the NeuralPLexer
+    model.
 
     :param cfg: Configuration dictionary from the hydra YAML file.
     """
+    # load ID subset if requested
     pdb_ids = None
     if cfg.dataset == "posebusters_benchmark" and cfg.posebusters_ccd_ids_filepath is not None:
         assert os.path.exists(

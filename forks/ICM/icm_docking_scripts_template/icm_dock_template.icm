@@ -1,0 +1,36 @@
+call _startup
+show version
+
+input_path = "InputPathHolder"
+output_path = "OutputPathHolder"
+
+S_out = Path() // (s_projectsDir + "icmdock/") 
+# S_out[1]= "/home/aoxu/projects/PoseBench/"
+ #currentDockProj.S_projects=Unique(Sort(Replace( Name(Sarray( S_out[1] + "/*_gc.map|*.dtb" directory sort simple )) "_gc*" "" )))
+S_out[1]= "/home/aoxu/projects/PoseBench/forks/ICM/ICM_manual_docking_maps/plinder_set/p_ProteinNameHolder" 
+S_out[1]= "/home/aoxu/projects/PoseBench/forks/ICM/ICM_manual_docking_maps/plinder_set/p_ProteinNameHolder" 
+ #currentDockProj.S_projects=Unique(Sort(Replace( Name(Sarray( S_out[1] + "/*_gc.map|*.dtb" directory sort simple )) "_gc*" "" )))
+S_out[1]= "/home/aoxu/projects/PoseBench/forks/ICM/ICM_manual_docking_maps/plinder_set/p_ProteinNameHolder" 
+ #currentDockProj.S_projects=Unique(Sort(Replace( Name(Sarray( S_out[1] + "/*_gc.map|*.dtb" directory sort simple )) "_gc*" "" )))
+set directory "/home/aoxu/projects/PoseBench/forks/ICM/ICM_manual_docking_maps/plinder_set/p_ProteinNameHolder/" 
+
+dockUpdateGlobals "p_ProteinNameHolder" -1 
+if( yes & currentDockProj.l_readyReceptor ) dockDisplayMol "p_ProteinNameHolder" 0, -1 
+currentDockProj.data[8] = "yes" 
+
+openFile "InputPathHolder" 0 yes no no no " append" 
+
+
+s_out = Path() 
+S_out = Name( model, "DOCKING" ) 
+dockMakeInputTable currentDockProj.data[1] Name( vProteinNameHolder_ligand table ) 
+dockInputTable Name( vProteinNameHolder_ligand table ) 10.00 10 no no no no 
+
+# /home/aoxu/icm-3.9-4/icm64 /home/aoxu/icm-3.9-4/_dockScan -s -a thorough=3. name="v"+"ProteinNameHolder"+"_ligand" input="v"+"ProteinNameHolder"+"_ligand"_input.sdf -S confs=3 ProteinNameHolder 
+# "v"+"ProteinNameHolder"+"_ligand".l_busyDocking = no
+# dockProcessAnswersFromInputTable ""v"+"ProteinNameHolder"+"_ligand""
+
+
+write table mol compress "v"+"ProteinNameHolder"+"_ligand" "OutputPathHolder"
+
+# quit

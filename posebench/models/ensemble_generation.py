@@ -3,6 +3,7 @@
 # -------------------------------------------------------------------------------------------------------------------------------------
 
 import ast
+import copy
 import glob
 import logging
 import multiprocessing
@@ -44,7 +45,13 @@ from posebench.utils.data_utils import (
 )
 from posebench.utils.model_utils import calculate_rmsd
 
-METHODS_PREDICTING_HOLO_PROTEIN_AB_INITIO = {"neuralplexer", "rfaa"}
+METHODS_PREDICTING_HOLO_PROTEIN_AB_INITIO = {
+    "neuralplexer",
+    "flowdock",
+    "rfaa",
+    "chai-lab",
+    "alphafold3",
+}
 
 ENSEMBLE_PREDICTIONS = Dict[str, List[Tuple[str, str]]]
 RANKED_ENSEMBLE_PREDICTIONS = Dict[int, Tuple[str, str, str, float]]
@@ -79,16 +86,18 @@ def predict_protein_structure_from_sequence(
 ):
     """Predict protein structure from amino acid sequence.
 
-    :param python_exec_path: Path to the Python executable with which to run Python scripts.
-    :param structure_prediction_script_path: Path to the ESMFold structure prediction script to
-        run.
+    :param python_exec_path: Path to the Python executable with which to
+        run Python scripts.
+    :param structure_prediction_script_path: Path to the ESMFold
+        structure prediction script to run.
     :param fasta_filepath: Path to the input FASTA file.
     :param output_pdb_dir: Path to the output PDB directory.
     :param chunk_size: Optional chunk size for structure prediction.
     :param cpu_only: Whether to use CPU only for structure prediction.
-    :param cpu_offload: Whether to use CPU offloading for structure prediction.
-    :param cuda_device_index: The optional index of the CUDA device to use for structure
+    :param cpu_offload: Whether to use CPU offloading for structure
         prediction.
+    :param cuda_device_index: The optional index of the CUDA device to
+        use for structure prediction.
     """
     cmd_inputs = [
         python_exec_path,
@@ -119,24 +128,26 @@ def insert_hpc_headers(
     method: str,
     gpu_partition: str = "chengji-lab-gpu",
     gpu_account: str = "chengji-lab",
-    gpu_type: Literal["A100", "H100"] = "H100",
+    gpu_type: Literal["A100", "H100", ""] = "",
     cpu_memory_in_gb: int = 59,
     time_limit: str = "7-00:00:00",
 ) -> str:
     """Insert batch headers for SLURM job scheduling.
 
-    :param method: Name of the method for which to generate a prediction script.
+    :param method: Name of the method for which to generate a prediction
+        script.
     :param gpu_partition: Name of the GPU partition to use.
     :param gpu_account: Name of the GPU account to use.
     :param cpu_memory_in_gb: Amount of CPU memory to request in GB.
-    :param time_limit: Time limit for the job as a SLURM-compatible string.
+    :param time_limit: Time limit for the job as a SLURM-compatible
+        string.
     :return: Batch headers string for SLURM job scheduling.
     """
     return f"""######################### Batch Headers #########################
 #SBATCH --partition {gpu_partition} # use reserved partition `chengji-lab-gpu`
 #SBATCH --account {gpu_account}  # NOTE: this must be specified to use the reserved partition above
 #SBATCH --nodes=1              # NOTE: this needs to match Lightning's `Trainer(num_nodes=...)`
-#SBATCH --gres gpu:{gpu_type}:1      # request {gpu_type} GPU resource(s)
+#SBATCH --gres gpu:{f'{gpu_type}:' if gpu_type else ''}1      # request {gpu_type} GPU resource(s)
 #SBATCH --ntasks-per-node=1    # NOTE: this needs to be `1` on SLURM clusters when using Lightning's `ddp_spawn` strategy`; otherwise, set to match Lightning's quantity of `Trainer(devices=...)`
 #SBATCH --mem={cpu_memory_in_gb}G              # NOTE: use `--mem=0` to request all memory "available" on the assigned node
 #SBATCH -t {time_limit}          # time limit for the job (up to two days: `2-00:00:00`)
@@ -171,12 +182,14 @@ def create_diffdock_bash_script(
 ):
     """Create a bash script to run DiffDock protein-ligand complex prediction.
 
-    :param protein_filepath: Path to the input protein structure PDB file.
+    :param protein_filepath: Path to the input protein structure PDB
+        file.
     :param ligand_smiles: SMILES string of the input ligand.
     :param input_id: Input ID.
     :param output_filepath: Path to the output bash script file.
     :param cfg: Configuration dictionary for runtime arguments.
-    :param generate_hpc_scripts: Whether to generate HPC scripts for DiffDock.
+    :param generate_hpc_scripts: Whether to generate HPC scripts for
+        DiffDock.
     """
     bash_script_content = f"""#!/bin/bash -l
 {insert_hpc_headers(method='diffdock') if generate_hpc_scripts else 'source /home/$USER/mambaforge/etc/profile.d/conda.sh'}
@@ -222,13 +235,16 @@ def create_dynamicbind_bash_script(
     cfg: DictConfig,
     generate_hpc_scripts: bool = True,
 ):
-    """Create a bash script to run DynamicBind protein-ligand complex prediction.
+    """Create a bash script to run DynamicBind protein-ligand complex
+    prediction.
 
-    :param protein_filepath: Path to the input protein structure PDB file.
+    :param protein_filepath: Path to the input protein structure PDB
+        file.
     :param ligand_smiles: SMILES string of the input ligand.
     :param output_filepath: Path to the output bash script file.
     :param cfg: Configuration dictionary for runtime arguments.
-    :param generate_hpc_scripts: Whether to generate HPC scripts for DynamicBind.
+    :param generate_hpc_scripts: Whether to generate HPC scripts for
+        DynamicBind.
     """
     bash_script_content = f"""#!/bin/bash
 {insert_hpc_headers(method='dynamicbind') if generate_hpc_scripts else 'source /home/$USER/mambaforge/etc/profile.d/conda.sh'}
@@ -275,14 +291,17 @@ def create_neuralplexer_bash_script(
     cfg: DictConfig,
     generate_hpc_scripts: bool = True,
 ):
-    """Create a bash script to run NeuralPLexer protein-ligand complex prediction.
+    """Create a bash script to run NeuralPLexer protein-ligand complex
+    prediction.
 
-    :param protein_filepath: Path to the input protein structure PDB file.
+    :param protein_filepath: Path to the input protein structure PDB
+        file.
     :param ligand_smiles: SMILES string of the input ligand.
     :param input_id: Input ID.
     :param output_filepath: Path to the output bash script file.
     :param cfg: Configuration dictionary for runtime arguments.
-    :param generate_hpc_scripts: Whether to generate HPC scripts for NeuralPLexer.
+    :param generate_hpc_scripts: Whether to generate HPC scripts for
+        NeuralPLexer.
     """
     bash_script_content = f"""#!/bin/bash
 {insert_hpc_headers(method='neuralplexer') if generate_hpc_scripts else 'source /home/$USER/mambaforge/etc/profile.d/conda.sh'}
@@ -333,6 +352,85 @@ echo "Finished calling neuralplexer_inference.py!"
     logger.info(f"Bash script '{output_filepath}' created successfully.")
 
 
+def create_flowdock_bash_script(
+    protein_filepath: str,
+    ligand_smiles: str,
+    input_id: str,
+    output_filepath: str,
+    cfg: DictConfig,
+    generate_hpc_scripts: bool = True,
+):
+    """Create a bash script to run FlowDock protein-ligand complex prediction.
+
+    :param protein_filepath: Path to the input protein structure PDB
+        file.
+    :param ligand_smiles: SMILES string of the input ligand.
+    :param input_id: Input ID.
+    :param output_filepath: Path to the output bash script file.
+    :param cfg: Configuration dictionary for runtime arguments.
+    :param generate_hpc_scripts: Whether to generate HPC scripts for
+        FlowDock.
+    """
+    bash_script_content = f"""#!/bin/bash
+{insert_hpc_headers(method='flowdock') if generate_hpc_scripts else 'source /home/$USER/mambaforge/etc/profile.d/conda.sh'}
+conda activate {"$project_dir/PoseBench/" if generate_hpc_scripts else 'PoseBench'}
+
+# command to run flowdock_input_preparation.py
+python posebench/data/flowdock_input_preparation.py \\
+    output_csv_path={cfg.flowdock_input_csv_path} \\
+    input_receptor='{protein_filepath}' \\
+    input_ligand='"{ligand_smiles}"' \\
+    input_template='{protein_filepath}' \\
+    input_id='{input_id}'
+
+# command to run flowdock_inference.py
+echo "Calling flowdock_inference.py!"
+{cfg.flowdock_python_exec_path} posebench/models/flowdock_inference.py \\
+    python_exec_path={cfg.flowdock_python_exec_path} \\
+    flowdock_exec_dir={cfg.flowdock_exec_dir} \\
+    input_data_dir={cfg.flowdock_input_data_dir} \\
+    input_receptor_structure_dir={cfg.flowdock_input_receptor_structure_dir} \\
+    input_csv_path={cfg.flowdock_input_csv_path} \\
+    skip_existing={cfg.flowdock_skip_existing} \\
+    sampling_task={cfg.flowdock_sampling_task} \\
+    sample_id={cfg.flowdock_sample_id} \\
+    input_receptor={cfg.flowdock_input_receptor} \\
+    input_ligand={cfg.flowdock_input_ligand} \\
+    input_template={cfg.flowdock_input_template} \\
+    model_checkpoint={cfg.flowdock_model_checkpoint} \\
+    out_path={cfg.flowdock_out_path} \\
+    n_samples={min(cfg.flowdock_n_samples, cfg.max_method_predictions)} \\
+    chunk_size={cfg.flowdock_chunk_size} \\
+    num_steps={cfg.flowdock_num_steps} \\
+    latent_model={cfg.flowdock_latent_model} \\
+    sampler={cfg.flowdock_sampler} \\
+    sampler_eta={cfg.flowdock_sampler_eta} \\
+    start_time={cfg.flowdock_start_time} \\
+    max_chain_encoding_k={cfg.flowdock_max_chain_encoding_k} \\
+    exact_prior={cfg.flowdock_exact_prior} \\
+    prior_type={cfg.flowdock_prior_type} \\
+    discard_ligand={cfg.flowdock_discard_ligand} \\
+    discard_sdf_coords={cfg.flowdock_discard_sdf_coords} \\
+    detect_covalent={cfg.flowdock_detect_covalent} \\
+    use_template={cfg.flowdock_use_template} \\
+    separate_pdb={cfg.flowdock_separate_pdb} \\
+    rank_outputs_by_confidence={cfg.flowdock_rank_outputs_by_confidence} \\
+    plddt_ranking_type={cfg.flowdock_plddt_ranking_type} \\
+    visualize_sample_trajectories={cfg.flowdock_visualize_sample_trajectories} \\
+    auxiliary_estimation_only={cfg.flowdock_auxiliary_estimation_only} \\
+    auxiliary_estimation_input_dir={cfg.flowdock_auxiliary_estimation_input_dir} \\
+    csv_path={cfg.flowdock_csv_path} \\
+    esmfold_chunk_size={cfg.flowdock_esmfold_chunk_size}
+
+echo "Finished calling flowdock_inference.py!"
+    """
+
+    with open(output_filepath, "w") as file:
+        file.write(bash_script_content)
+
+    logger.info(f"Bash script '{output_filepath}' created successfully.")
+
+
 def rfaa_get_chain_letter(index: int) -> str:
     """Get the RFAA chain letter based on index."""
     alphabet = "abcdefghijklmnopqrstuvwxyz"
@@ -358,14 +456,15 @@ def dynamically_build_rfaa_input_config(
     cfg: DictConfig,
     smiles_strings: Optional[List[str]] = None,
 ) -> str:
-    """Dynamically build the RoseTTAFold-All-Atom inference configuration file for input proteins
-    and ligands.
+    """Dynamically build the RoseTTAFold-All-Atom inference configuration file
+    for input proteins and ligands.
 
     :param fasta_filepaths: List of FASTA filepaths.
     :param sdf_filepaths: List of optional SDF filepaths.
     :param input_id: Input ID.
     :param cfg: Configuration dictionary for runtime arguments.
-    :param smiles_strings: Optional list of SMILES strings of the input ligands to use directly.
+    :param smiles_strings: Optional list of SMILES strings of the input
+        ligands to use directly.
     :return: Path to the dynamically built configuration file.
     """
     # Build protein_inputs section dynamically
@@ -426,15 +525,19 @@ def create_rfaa_bash_script(
     smiles_strings: Optional[List[str]] = None,
     generate_hpc_scripts: bool = True,
 ):
-    """Create a bash script to run RoseTTAFold-All-Atom protein-ligand complex prediction.
+    """Create a bash script to run RoseTTAFold-All-Atom protein-ligand complex
+    prediction.
 
     :param fasta_filepaths: List of FASTA filepaths.
     :param sdf_filepaths: List of optional SDF filepaths.
     :param input_id: Input ID.
     :param cfg: Configuration dictionary for runtime arguments.
-    :param output_filepath: Optional path to the output bash script file.
-    :param smiles_strings: Optional list of SMILES strings of the input ligands to use directly.
-    :param generate_hpc_scripts: Whether to generate HPC scripts for RoseTTAFold-All-Atom.
+    :param output_filepath: Optional path to the output bash script
+        file.
+    :param smiles_strings: Optional list of SMILES strings of the input
+        ligands to use directly.
+    :param generate_hpc_scripts: Whether to generate HPC scripts for
+        RoseTTAFold-All-Atom.
     """
 
     if output_filepath is None:
@@ -483,12 +586,15 @@ def create_chai_bash_script(
 ):
     """Create a bash script to run Chai-1 protein-ligand complex prediction.
 
-    :param protein_filepath: Path to the input protein structure PDB file.
+    :param protein_filepath: Path to the input protein structure PDB
+        file.
     :param ligand_smiles: SMILES string of the input ligand.
     :param input_id: Input ID.
     :param cfg: Configuration dictionary for runtime arguments.
-    :param output_filepath: Optional path to the output bash script file.
-    :param generate_hpc_scripts: Whether to generate HPC scripts for RoseTTAFold-All-Atom.
+    :param output_filepath: Optional path to the output bash script
+        file.
+    :param generate_hpc_scripts: Whether to generate HPC scripts for
+        RoseTTAFold-All-Atom.
     """
 
     if output_filepath is None:
@@ -524,7 +630,9 @@ echo "Finished calling chai_inference.py!"
 
 
 def create_vina_bash_script(
-    binding_site_method: Literal["diffdock", "fabind", "dynamicbind", "neuralplexer", "rfaa"],
+    binding_site_method: Literal[
+        "diffdock", "fabind", "dynamicbind", "neuralplexer", "flowdock", "rfaa"
+    ],
     protein_filepath: str,
     ligand_filepath: str,
     apo_protein_filepath: str,
@@ -533,16 +641,21 @@ def create_vina_bash_script(
     cfg: DictConfig,
     generate_hpc_scripts: bool = True,
 ):
-    """Create a bash script to run Vina-based protein-ligand complex prediction.
+    """Create a bash script to run Vina-based protein-ligand complex
+    prediction.
 
-    :param binding_site_method: Name of the method used to predict the binding site.
-    :param protein_filepath: Path to the input protein structure PDB file.
+    :param binding_site_method: Name of the method used to predict the
+        binding site.
+    :param protein_filepath: Path to the input protein structure PDB
+        file.
     :param ligand_filepath: Path to the input ligand structure SDF file.
-    :param apo_protein_filepath: Path to the predicted apo protein structure PDB file.
+    :param apo_protein_filepath: Path to the predicted apo protein
+        structure PDB file.
     :param input_id: Input ID.
     :param output_filepath: Path to the output bash script file.
     :param cfg: Configuration dictionary for runtime arguments.
-    :param generate_hpc_scripts: Whether to generate HPC scripts for Vina.
+    :param generate_hpc_scripts: Whether to generate HPC scripts for
+        Vina.
     """
     bash_script_content = f"""#!/bin/bash -l
 {insert_hpc_headers(method='vina') if generate_hpc_scripts else 'source /home/$USER/mambaforge/etc/profile.d/conda.sh'}
@@ -595,19 +708,23 @@ def generate_method_prediction_script(
 ):
     """Generate a script to run the method's protein-ligand complex prediction.
 
-    :param method: Name of the method to generate a prediction script for.
-    :param protein_filepath: Path to the input protein structure PDB file.
+    :param method: Name of the method to generate a prediction script
+        for.
+    :param protein_filepath: Path to the input protein structure PDB
+        file.
     :param ligand_smiles: SMILES string of the input ligand.
     :param input_id: Input ID.
     :param output_filepath: Path to the output Bash script file.
     :param cfg: Configuration dictionary for runtime arguments.
-    :param generate_hpc_scripts: Whether to generate HPC scripts for the method.
-    :param method_filepaths_mapping: Optional mapping of method names to a list of tuples of
-        protein and ligand filepaths.
+    :param generate_hpc_scripts: Whether to generate HPC scripts for the
+        method.
+    :param method_filepaths_mapping: Optional mapping of method names to
+        a list of tuples of protein and ligand filepaths.
     """
 
     def extract_protein_chains_to_fasta_files(protein_filepath: str) -> List[str]:
-        """Extract individual chains from a protein file and save them as separate FASTA files.
+        """Extract individual chains from a protein file and save them as
+        separate FASTA files.
 
         :param protein_filepath: Path to the protein file.
         :return: List of paths to the extracted FASTA files.
@@ -643,8 +760,8 @@ def generate_method_prediction_script(
         create_diffdock_bash_script(
             protein_filepath,
             ligand_smiles.replace(
-                ":", "|"
-            ),  # NOTE: DiffDock supports multi-ligands using the separator "|"
+                ":", "."
+            ),  # NOTE: DiffDock supports multi-ligands using the separator "."
             input_id,
             output_filepath,
             cfg,
@@ -654,8 +771,8 @@ def generate_method_prediction_script(
         create_dynamicbind_bash_script(
             protein_filepath,
             ligand_smiles.replace(
-                ":", "|"
-            ),  # NOTE: DynamicBind supports multi-ligands using the separator "|"
+                ":", "."
+            ),  # NOTE: DynamicBind supports multi-ligands using the separator "."
             output_filepath,
             cfg,
             generate_hpc_scripts=generate_hpc_scripts,
@@ -664,8 +781,19 @@ def generate_method_prediction_script(
         create_neuralplexer_bash_script(
             protein_filepath,
             ligand_smiles.replace(
-                ":", "|"
-            ),  # NOTE: NeuralPLexer supports multi-ligands using the separator "|"
+                ":", "."
+            ),  # NOTE: NeuralPLexer supports multi-ligands using the separator "."
+            input_id,
+            output_filepath,
+            cfg,
+            generate_hpc_scripts=generate_hpc_scripts,
+        )
+    elif method == "flowdock":
+        create_flowdock_bash_script(
+            protein_filepath,
+            ligand_smiles.replace(
+                ":", "."
+            ),  # NOTE: FlowDock supports multi-ligands using the separator "."
             input_id,
             output_filepath,
             cfg,
@@ -691,6 +819,10 @@ def generate_method_prediction_script(
             cfg=cfg,
             output_filepath=output_filepath,
             generate_hpc_scripts=generate_hpc_scripts,
+        )
+    elif method == "alphafold3":
+        logger.info(
+            "AlphaFold-3 ensemble prediction Bash scripts are not supported. Skipping script creation."
         )
     elif method == "vina":
         assert (
@@ -738,20 +870,24 @@ def get_method_predictions(
     cfg: DictConfig,
     binding_site_method: Optional[str] = None,
     input_protein_filepath: Optional[str] = None,
+    is_ss_method: bool = False,
 ) -> List[Tuple[str, str]]:
     """Get the predictions generated by the method.
 
     :param method: Name of the method to get predictions for.
     :param target: Name of the target protein-ligand pair.
     :param cfg: Configuration dictionary for runtime arguments.
-    :param binding_site_method: Optional name of the method used to predict AutoDock Vina's binding
-        sites.
-    :param input_protein_filepath: Optional path to the input protein structure PDB file.
-    :return: List of method predictions, each as a tuple of the output protein filepath and the
-        output ligand filepath.
+    :param binding_site_method: Optional name of the method used to
+        predict AutoDock Vina's binding sites.
+    :param input_protein_filepath: Optional path to the input protein
+        structure PDB file.
+    :param is_ss_method: Whether the method is a single-sequence method.
+    :return: List of method predictions, each as a tuple of the output
+        protein filepath and the output ligand filepath.
     """
     pocket_only_suffix = "_pocket_only" if cfg.pocket_only_baseline else ""
     no_ilcl_suffix = "_no_ilcl" if cfg.neuralplexer_no_ilcl else ""
+    single_seq_suffix = "_ss" if is_ss_method else ""
 
     if method == "diffdock":
         ensemble_benchmarking_output_dir = (
@@ -880,9 +1016,42 @@ def get_method_predictions(
     elif method == "neuralplexer":
         ensemble_benchmarking_output_dir = (
             Path(cfg.input_dir if cfg.input_dir else cfg.neuralplexer_out_path).parent
-            / f"neuralplexer{pocket_only_suffix}{no_ilcl_suffix}_{cfg.ensemble_benchmarking_dataset}_outputs_{cfg.ensemble_benchmarking_repeat_index}"
+            / f"neuralplexer{single_seq_suffix}{pocket_only_suffix}{no_ilcl_suffix}_{cfg.ensemble_benchmarking_dataset}_outputs_{cfg.ensemble_benchmarking_repeat_index}"
             if cfg.ensemble_benchmarking
             else (cfg.input_dir if cfg.input_dir else cfg.neuralplexer_out_path)
+        )
+        protein_output_files = sorted(
+            [
+                file
+                for file in map(
+                    str,
+                    Path(os.path.join(ensemble_benchmarking_output_dir, target)).rglob("*.pdb"),
+                )
+                if "rank" in os.path.basename(file)
+                and "relaxed" not in os.path.basename(file)
+                and "aligned" not in os.path.basename(file)
+            ],
+            key=rank_key,
+        )[: cfg.method_top_n_to_select]
+        ligand_output_files = sorted(
+            [
+                file
+                for file in map(
+                    str,
+                    Path(os.path.join(ensemble_benchmarking_output_dir, target)).rglob("*.sdf"),
+                )
+                if "rank" in os.path.basename(file)
+                and "relaxed" not in os.path.basename(file)
+                and "aligned" not in os.path.basename(file)
+            ],
+            key=rank_key,
+        )[: cfg.method_top_n_to_select]
+    elif method == "flowdock":
+        ensemble_benchmarking_output_dir = (
+            Path(cfg.input_dir if cfg.input_dir else cfg.flowdock_out_path).parent
+            / f"flowdock_{cfg.ensemble_benchmarking_dataset}_outputs_{cfg.ensemble_benchmarking_repeat_index}"
+            if cfg.ensemble_benchmarking
+            else (cfg.input_dir if cfg.input_dir else cfg.flowdock_out_path)
         )
         protein_output_files = sorted(
             [
@@ -944,7 +1113,7 @@ def get_method_predictions(
     elif method == "chai-lab":
         ensemble_benchmarking_output_dir = (
             Path(cfg.input_dir if cfg.input_dir else cfg.chai_out_path).parent
-            / f"chai-lab{pocket_only_suffix}{no_ilcl_suffix}_{cfg.ensemble_benchmarking_dataset}_outputs_{cfg.ensemble_benchmarking_repeat_index}"
+            / f"chai-lab{single_seq_suffix}{pocket_only_suffix}_{cfg.ensemble_benchmarking_dataset}_outputs_{cfg.ensemble_benchmarking_repeat_index}"
             if cfg.ensemble_benchmarking
             else (cfg.input_dir if cfg.input_dir else cfg.chai_out_path)
         )
@@ -969,6 +1138,40 @@ def get_method_predictions(
                     Path(os.path.join(ensemble_benchmarking_output_dir, target)).rglob("*.sdf"),
                 )
                 if "model_idx" in os.path.basename(file)
+                and "relaxed" not in os.path.basename(file)
+                and "aligned" not in os.path.basename(file)
+                and "_LIG_" not in os.path.basename(file)
+            ],
+            key=rank_key,
+        )[: cfg.method_top_n_to_select]
+    elif method == "alphafold3":
+        ensemble_benchmarking_output_dir = (
+            Path(cfg.input_dir if cfg.input_dir else cfg.alphafold3_out_path).parent
+            / f"alphafold3{single_seq_suffix}{pocket_only_suffix}_{cfg.ensemble_benchmarking_dataset}_outputs_{cfg.ensemble_benchmarking_repeat_index}"
+            if cfg.ensemble_benchmarking
+            else (cfg.input_dir if cfg.input_dir else cfg.alphafold3_out_path)
+        )
+        protein_output_files = sorted(
+            [
+                file
+                for file in map(
+                    str,
+                    Path(os.path.join(ensemble_benchmarking_output_dir, target)).rglob("*.pdb"),
+                )
+                if "model_protein" in os.path.basename(file)
+                and "relaxed" not in os.path.basename(file)
+                and "aligned" not in os.path.basename(file)
+            ],
+            key=rank_key,
+        )[: cfg.method_top_n_to_select]
+        ligand_output_files = sorted(
+            [
+                file
+                for file in map(
+                    str,
+                    Path(os.path.join(ensemble_benchmarking_output_dir, target)).rglob("*.sdf"),
+                )
+                if "model_ligand" in os.path.basename(file)
                 and "relaxed" not in os.path.basename(file)
                 and "aligned" not in os.path.basename(file)
                 and "_LIG_" not in os.path.basename(file)
@@ -1135,16 +1338,19 @@ def generate_ensemble_predictions(
 ) -> Tuple[Optional[ENSEMBLE_PREDICTIONS], bool]:
     """Generate bound complex predictions using an ensemble of methods.
 
-    :param protein_filepath: Path to the input protein structure PDB file.
+    :param protein_filepath: Path to the input protein structure PDB
+        file.
     :param ligand_input: Path to the input ligand SMILES string.
     :param input_id: Input ID.
     :param target: Name of the target protein-ligand pair.
     :param cfg: Configuration dictionary for runtime arguments.
-    :param generate_hpc_scripts: Whether to generate HPC scripts for the ensemble predictions.
-    :param method_filepaths_mapping: Optional mapping of method names to a list of tuples of
-        protein and ligand filepaths.
-    :return: Dictionary of method names and their corresponding predictions as well as whether the
-        prediction scripts were generated and now need to be run.
+    :param generate_hpc_scripts: Whether to generate HPC scripts for the
+        ensemble predictions.
+    :param method_filepaths_mapping: Optional mapping of method names to
+        a list of tuples of protein and ligand filepaths.
+    :return: Dictionary of method names and their corresponding
+        predictions as well as whether the prediction scripts were
+        generated and now need to be run.
     """
     os.makedirs(cfg.output_bash_file_dir, exist_ok=True)
 
@@ -1172,7 +1378,7 @@ def generate_ensemble_predictions(
 
     if cfg.resume:
         ensemble_predictions_dict = {}
-        for method in cfg.ensemble_methods:
+        for method, is_ss_method in zip(cfg.ensemble_methods, cfg.is_ss_ensemble_method):
             if method == "vina":
                 for binding_site_method in cfg.vina_binding_site_methods:
                     method_predictions = get_method_predictions(
@@ -1181,11 +1387,16 @@ def generate_ensemble_predictions(
                         cfg,
                         binding_site_method=binding_site_method,
                         input_protein_filepath=protein_filepath,
+                        is_ss_method=is_ss_method,
                     )
                     ensemble_predictions_dict[f"vina_{binding_site_method}"] = method_predictions
             else:
                 method_predictions = get_method_predictions(
-                    method, input_id, cfg, input_protein_filepath=protein_filepath
+                    method,
+                    input_id,
+                    cfg,
+                    input_protein_filepath=protein_filepath,
+                    is_ss_method=is_ss_method,
                 )
                 ensemble_predictions_dict[method] = method_predictions
 
@@ -1200,12 +1411,14 @@ def consensus_rank_ensemble_predictions(
     """Consensus-rank the predictions to select the top prediction(s).
 
     :param cfg: Configuration dictionary for runtime arguments.
-    :param method_ligand_positions: List of ligand positions from each method's predictions.
-    :param ensemble_predictions_list: List of tuples of method name, output protein filepath, and
-        output ligand filepath.
-    :return: Dictionary of consensus-ranked predictions indexed by each prediction's consensus
-        ranking and valued as its method name, output protein filepath, output ligand filepath, and
-        average pairwise RMSD.
+    :param method_ligand_positions: List of ligand positions from each
+        method's predictions.
+    :param ensemble_predictions_list: List of tuples of method name,
+        output protein filepath, and output ligand filepath.
+    :return: Dictionary of consensus-ranked predictions indexed by each
+        prediction's consensus ranking and valued as its method name,
+        output protein filepath, output ligand filepath, and average
+        pairwise RMSD.
     """
     if len(cfg.ensemble_methods) > 1 or (
         len(cfg.ensemble_methods) == 1 and not cfg.rank_single_method_intrinsically
@@ -1241,15 +1454,16 @@ def ff_rank_ensemble_predictions(
     cfg: DictConfig,
     ensemble_predictions_list: List[Tuple[str, str, str]],
 ) -> RANKED_ENSEMBLE_PREDICTIONS:
-    """Rank the predictions using an OpenMM force field (FF) to select the top prediction(s)
-    according to the criterion of minimum energy.
+    """Rank the predictions using an OpenMM force field (FF) to select the top
+    prediction(s) according to the criterion of minimum energy.
 
     :param cfg: Configuration dictionary for runtime arguments.
-    :param ensemble_predictions_list: List of tuples of method name, output protein filepath, and
-        output ligand filepath.
-    :return: Dictionary of Vina-ranked predictions indexed by each prediction's consensus ranking
-        and valued as its method name, output protein filepath, output ligand filepath, and Vina
-        energy score.
+    :param ensemble_predictions_list: List of tuples of method name,
+        output protein filepath, and output ligand filepath.
+    :return: Dictionary of Vina-ranked predictions indexed by each
+        prediction's consensus ranking and valued as its method name,
+        output protein filepath, output ligand filepath, and Vina energy
+        score.
     """
     if len(cfg.ensemble_methods) > 1 or (
         len(cfg.ensemble_methods) == 1 and not cfg.rank_single_method_intrinsically
@@ -1336,13 +1550,14 @@ def rank_ensemble_predictions(
 ) -> RANKED_ENSEMBLE_PREDICTIONS:
     """Rank the predictions to select the top prediction(s).
 
-    :param ensemble_predictions_dict: Dictionary of method names and their corresponding
-        predictions.
+    :param ensemble_predictions_dict: Dictionary of method names and
+        their corresponding predictions.
     :param name: Name of the target protein-ligand pair.
     :param cfg: Configuration dictionary for runtime arguments.
-    :return: Dictionary of consensus-ranked predictions indexed by each prediction's consensus
-        ranking and valued as its method name, output protein filepath, output ligand filepath, and
-        average pairwise RMSD or Vina energy score.
+    :return: Dictionary of consensus-ranked predictions indexed by each
+        prediction's consensus ranking and valued as its method name,
+        output protein filepath, output ligand filepath, and average
+        pairwise RMSD or Vina energy score.
     """
     # cache filepath to predicted apo protein structure from a structure predictor e.g., ESMFold
     if cfg.ensemble_benchmarking:
@@ -1401,11 +1616,21 @@ def rank_ensemble_predictions(
                 method in METHODS_PREDICTING_HOLO_PROTEIN_AB_INITIO
                 and apo_reference_protein_filepath is not None
             ):
-                align_complex_to_protein_only(
-                    protein_filepath, ligand_filepath, apo_reference_protein_filepath
-                )
-                protein_filepath = protein_filepath.replace(".pdb", "_aligned.pdb")
-                ligand_filepath = ligand_filepath.replace(".sdf", "_aligned.sdf")
+                try:
+                    alignment_return_code = align_complex_to_protein_only(
+                        protein_filepath, ligand_filepath, apo_reference_protein_filepath
+                    )
+                    if alignment_return_code == 0:
+                        protein_filepath = protein_filepath.replace(".pdb", "_aligned.pdb")
+                        ligand_filepath = ligand_filepath.replace(".sdf", "_aligned.sdf")
+                    else:
+                        logger.warning(
+                            f"Failed to align predicted complex structure {protein_filepath} and ligand structure {ligand_filepath} to the apo protein structure {apo_reference_protein_filepath} from method {method}. Skipping alignment..."
+                        )
+                except Exception as e:
+                    logger.warning(
+                        f"Failed to align protein-ligand complex {protein_filepath} and {ligand_filepath} to apo protein structure {apo_reference_protein_filepath}. Skipping alignment due to: {e}"
+                    )
             try:
                 ligand = read_molecule(ligand_filepath)
             except Exception as e:
@@ -1458,23 +1683,28 @@ def rank_ensemble_predictions(
 def assign_reference_residue_b_factors(
     protein_output_files: List[str], protein_reference_filepath: str
 ) -> List[str]:
-    """If `b_factor` columns values are not already present, assign the reference protein
-    structure's per-residue confidence scores to each output protein.
+    """If `b_factor` columns values are not already present, assign the
+    reference protein structure's per-residue confidence scores to each output
+    protein.
 
-    :param protein_output_files: List of output protein structure PDB filepaths.
-    :param protein_reference_filepath: Path to the input protein structure PDB file.
-    :return: List of output protein structure PDB filepaths with the input protein's per-residue
-        confidence scores.
+    :param protein_output_files: List of output protein structure PDB
+        filepaths.
+    :param protein_reference_filepath: Path to the input protein
+        structure PDB file.
+    :return: List of output protein structure PDB filepaths with the
+        input protein's per-residue confidence scores.
     """
     new_protein_output_files = []
 
     def set_residue_b_factors(
         structure: Structure, residue_chain_b_factors: Dict[Tuple[int, str], float]
     ):
-        """Set the per-residue confidence scores for each residue in the protein structure.
+        """Set the per-residue confidence scores for each residue in the
+        protein structure.
 
         :param structure: Structure object of the protein.
-        :param: residue_chain_b_factors: Dictionary of residue keys to their confidence scores.
+        :param: residue_chain_b_factors: Dictionary of residue keys to
+            their confidence scores.
         """
         for model in structure:
             for chain in model:
@@ -1484,10 +1714,12 @@ def assign_reference_residue_b_factors(
                         atom.set_bfactor(residue_chain_b_factors.get(residue_key, 0.0))
 
     def set_atom_b_factors(structure: Structure, ref_atom_records: List[Any]):
-        """Set the per-atom confidence scores for each atom in the protein structure.
+        """Set the per-atom confidence scores for each atom in the protein
+        structure.
 
         :param structure: Structure object of the protein.
-        :param ref_atom_records: List of Atom objects from the reference protein structure.
+        :param ref_atom_records: List of Atom objects from the reference
+            protein structure.
         """
         for atom_index, atom in enumerate(structure.get_atoms()):
             ref_atom = ref_atom_records[atom_index]
@@ -1554,14 +1786,20 @@ def export_proteins_in_casp_format(
 ):
     """Export the predicted protein structures in CASP format.
 
-    :param output_protein_filepaths: List of output protein structure PDB filepaths.
-    :param output_protein_pdb_file: Path to the output protein structure PDB file.
+    :param output_protein_filepaths: List of output protein structure
+        PDB filepaths.
+    :param output_protein_pdb_file: Path to the output protein structure
+        PDB file.
     :param pdb_header: Header string for the PDB file.
-    :param append: Whether to append the predicted protein structures to the output file.
-    :param export_casp15_format: Whether to format the output file for CASP15 benchmarking.
-    :param model_index: Optional index of the model to write to the PDB file.
-    :param gap_insertion_point: Optional `:`-separated string representing the chain-residue pair
-        index of the residue at which to insert a single index gap.
+    :param append: Whether to append the predicted protein structures to
+        the output file.
+    :param export_casp15_format: Whether to format the output file for
+        CASP15 benchmarking.
+    :param model_index: Optional index of the model to write to the PDB
+        file.
+    :param gap_insertion_point: Optional `:`-separated string
+        representing the chain-residue pair index of the residue at
+        which to insert a single index gap.
     """
     with open(output_protein_pdb_file, "a" if append else "w") as f:
         if (
@@ -2068,8 +2306,16 @@ def save_ranked_predictions(
     config_name="ensemble_generation.yaml",
 )
 def main(cfg: DictConfig):
-    """Generate predictions for a protein-ligand target pair using an ensemble of methods."""
+    """Generate predictions for a protein-ligand target pair using an ensemble
+    of methods."""
     os.makedirs(cfg.temp_protein_dir, exist_ok=True)
+
+    with open_dict(cfg):
+        # NOTE: besides their output directories, single-sequence baselines are treated like their multi-sequence counterparts
+        output_dir = copy.deepcopy(cfg.output_dir)
+        cfg.is_ss_ensemble_method = [s.endswith("_ss") for s in cfg.ensemble_methods]
+        cfg.ensemble_methods = [s.removesuffix("_ss") for s in cfg.ensemble_methods]
+        cfg.output_dir = output_dir
 
     if list(cfg.ensemble_methods) == ["neuralplexer"] and cfg.neuralplexer_no_ilcl:
         with open_dict(cfg):
@@ -2188,7 +2434,7 @@ def main(cfg: DictConfig):
             continue
 
         # ensure an input protein structure is available
-        if type(row.protein_input) == str and os.path.exists(row.protein_input):
+        if isinstance(row.protein_input, str) and os.path.exists(row.protein_input):
             temp_protein_filepath = row.protein_input
         else:
             if cfg.ensemble_benchmarking:
@@ -2199,7 +2445,7 @@ def main(cfg: DictConfig):
             # NOTE: a placeholder protein sequence is used when making ligand-only predictions
             row_protein_input = (
                 row.protein_input
-                if type(row.protein_input) == str and len(row.protein_input) > 0
+                if isinstance(row.protein_input, str) and len(row.protein_input) > 0
                 else LIGAND_ONLY_RECEPTOR_PLACEHOLDER_SEQUENCE
             )
             row_name = (
@@ -2271,15 +2517,21 @@ def main(cfg: DictConfig):
             ranked_predictions,
             temp_protein_filepath,
             row.name,
-            None
-            if isinstance(row, np.ndarray) and np.isnan(row.ligand_numbers).any()
-            else row.ligand_numbers,
-            None
-            if isinstance(row, np.ndarray) and np.isnan(row.ligand_names).any()
-            else row.ligand_names,
-            None
-            if isinstance(row, np.ndarray) and np.isnan(row.ligand_tasks).any()
-            else row.ligand_tasks,
+            (
+                None
+                if isinstance(row, np.ndarray) and np.isnan(row.ligand_numbers).any()
+                else row.ligand_numbers
+            ),
+            (
+                None
+                if isinstance(row, np.ndarray) and np.isnan(row.ligand_names).any()
+                else row.ligand_names
+            ),
+            (
+                None
+                if isinstance(row, np.ndarray) and np.isnan(row.ligand_tasks).any()
+                else row.ligand_tasks
+            ),
             cfg,
         )
         logger.info(f"Ensemble generation for target {row.name} has been completed.")

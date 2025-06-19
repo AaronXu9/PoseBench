@@ -34,8 +34,8 @@ def main(cfg: DictConfig):
         else cfg.input_csv_path
     )
 
-    if cfg.pocket_only_baseline:
-        with open_dict(cfg):
+    with open_dict(cfg):
+        if cfg.pocket_only_baseline:
             cfg.save_mols_dir = cfg.save_mols_dir.replace(
                 f"fabind_{cfg.dataset}", f"fabind_pocket_only_{cfg.dataset}"
             )
@@ -44,6 +44,11 @@ def main(cfg: DictConfig):
             )
             cfg.output_dir = cfg.output_dir.replace(
                 f"fabind_{cfg.dataset}", f"fabind_pocket_only_{cfg.dataset}"
+            )
+
+        if cfg.max_num_inputs:
+            cfg.output_dir = cfg.output_dir.replace(
+                f"_{cfg.dataset}", f"_first_{cfg.max_num_inputs}_{cfg.dataset}"
             )
 
     assert os.path.exists(input_csv_path), f"Input CSV file `{input_csv_path}` not found."
@@ -71,9 +76,11 @@ def main(cfg: DictConfig):
                 cfg.python_exec_path,
                 os.path.join(cfg.fabind_exec_dir, "inference_preprocess_protein.py"),
                 "--pdb_file_dir",
-                f"{cfg.input_data_dir}_bs_cropped"
-                if cfg.pocket_only_baseline
-                else cfg.input_data_dir,
+                (
+                    f"{cfg.input_data_dir}_bs_cropped"
+                    if cfg.pocket_only_baseline
+                    else cfg.input_data_dir
+                ),
                 "--save_pt_dir",
                 cfg.save_pt_dir,
                 "--cuda_device_index",

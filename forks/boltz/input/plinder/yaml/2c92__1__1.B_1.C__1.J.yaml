@@ -1,0 +1,11 @@
+properties:
+- affinity:
+    binder: B
+sequences:
+- protein:
+    id: A
+    sequence: DASGVRLAIVASSWHGKICDALLDGARKVAAGCGLDDPTVVRVLGAIEIPVVAQELARNHDAVVALGVVIRGQTPHFDYVCDAVTQGLTRVSLDSSTPIANGVLTTNTEEQALDRAGLPTSAEDKGAQATVAALATALTLRELRAHS
+- ligand:
+    id: B
+    smiles: O=c1[nH]c(=O)c2c([nH]1)n(C[C@@H](O)[C@H](O)[C@H](O)CO)c(=O)n2CCCCCOP(=O)(O)O
+version: 1

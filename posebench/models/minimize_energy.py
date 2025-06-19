@@ -1,8 +1,8 @@
 # -------------------------------------------------------------------------------------------------------------------------------------
 # Following code adapted from (https://github.com/maabuu/posebusters_em) and (https://github.com/luwei0917/DynamicBind)
 # -------------------------------------------------------------------------------------------------------------------------------------
-"""Energy minimization of a ligand in a protein pocket as used in the PoseBusters/DynamicBind
-paper.
+"""Energy minimization of a ligand in a protein pocket as used in the
+PoseBusters/DynamicBind paper.
 
 This code is based on the OpenMM user guide:
 http://docs.openmm.org/latest/userguide
@@ -16,12 +16,11 @@ import os
 import shutil
 import sys
 from pathlib import Path
-from typing import Any
 
 import hydra
 import numpy as np
 import rootutils
-import timeout_decorator
+from beartype.typing import Any, Dict, Optional
 from Bio.PDB import MMCIFIO, PDBIO, MMCIFParser, PDBParser, Select
 from omegaconf import DictConfig
 from openff.toolkit.topology import Molecule
@@ -44,6 +43,7 @@ from rdkit.Chem.rdmolfiles import MolFromMolFile, MolToMolFile
 from rdkit.Chem.rdmolops import AddHs, RemoveHs
 from scipy.spatial.distance import cdist
 from scipy.spatial.transform import Rotation as R
+from wrapt_timeout_decorator import timeout
 
 rootutils.setup_root(__file__, indicator=".project-root", pythonpath=True)
 
@@ -356,10 +356,12 @@ def randomly_rotate_protein_side_chains(
     num_chi_groups: int = 5,
     eps: float = 1e-6,
 ) -> Any:
-    """Randomly rotate side chains of the protein residues with local geometry violations.
+    """Randomly rotate side chains of the protein residues with local geometry
+    violations.
 
     :param structure: Structure to rotate.
-    :param violation_residue_idx: List of residue indices with local geometry violations.
+    :param violation_residue_idx: List of residue indices with local
+        geometry violations.
     :param min_angle: Minimum angle to rotate.
     :param max_angle: Maximum angle to rotate.
     :param num_chi_groups: Number of side chain groups.
@@ -447,11 +449,14 @@ def save_biopython_structure_to_pdb(
 
 
 def compute_protein_local_geometry_violations(input_pdb_filepath: str) -> tuple[int, list[int]]:
-    """Computes the number of protein local geometry violations in the PDB file.
+    """Computes the number of protein local geometry violations in the PDB
+    file.
 
-    :param input_pdb_filepath: Path to the latest protein input PDB file.
-    :return: A tuple containing the number of protein local geometry violations and the list of
-        residue indices with associated violations.
+    :param input_pdb_filepath: Path to the latest protein input PDB
+        file.
+    :return: A tuple containing the number of protein local geometry
+        violations and the list of residue indices with associated
+        violations.
     """
     protein_all_atoms = get_all_protein_atoms(input_pdb_filepath)
     protein_pdb = (
@@ -488,11 +493,14 @@ def get_all_ligand_non_hydrogen_atoms(
     """Get all non-hydrogen atoms in the ligand SDF file.
 
     :param input_sdf_filepath: Path to the latest ligand input SDF file.
-    :param ref_input_sdf_filepath: Path to the reference (e.g., original) ligand input SDF file.
-    :param input_mol: The optional RDKit molecule to directly use for the input ligand.
-    :param ref_mol: The optional RDKit molecule to directly use for the reference ligand.
-    :return: A tuple containing the NumPy ligand atom coordinates and the list-of-lists ligand
-        adjacency matrix.
+    :param ref_input_sdf_filepath: Path to the reference (e.g.,
+        original) ligand input SDF file.
+    :param input_mol: The optional RDKit molecule to directly use for
+        the input ligand.
+    :param ref_mol: The optional RDKit molecule to directly use for the
+        reference ligand.
+    :return: A tuple containing the NumPy ligand atom coordinates and
+        the list-of-lists ligand adjacency matrix.
     """
     try:
         if input_mol is not None:
@@ -532,8 +540,10 @@ def compute_ligand_local_geometry_violations(
 ) -> int:
     """Computes the number of ligand local geometry violations in the SDF file.
 
-    :param ref_input_sdf_filepath: Path to the reference (e.g., original) ligand input SDF file.
-    :param input_sdf_filepath: Path to the optional latest ligand input SDF file.
+    :param ref_input_sdf_filepath: Path to the reference (e.g.,
+        original) ligand input SDF file.
+    :param input_sdf_filepath: Path to the optional latest ligand input
+        SDF file.
     :return: The cumulative number of ligand local geometry violations.
     """
     deviations_greater_than_cutoff = []
@@ -567,7 +577,8 @@ def load_molecule(mol_path: Path, **kwargs) -> Molecule:
     """Load a molecule from a file.
 
     :param mol_path: Path to the molecule file.
-    :param kwargs: Additional keyword arguments to pass to the Molecule.from_file method.
+    :param kwargs: Additional keyword arguments to pass to the
+        Molecule.from_file method.
     :return: The loaded molecule.
     """
     mols = Molecule.from_file(str(mol_path), file_format="sdf", **kwargs)
@@ -586,10 +597,13 @@ def prep_ligand(
     """Prepare a ligand for use in OpenMM.
 
     :param ligand_file: Path to the ligand file.
-    :param temp_file: Path to the temporary file to save the prepared ligand to.
+    :param temp_file: Path to the temporary file to save the prepared
+        ligand to.
     :param relax_protein: Whether or not to relax the protein.
-    :param allow_undefined_stereo: Whether or not to allow undefined stereochemistry.
-    :param mol: The optional RDKit molecule to directly use for the ligand.
+    :param allow_undefined_stereo: Whether or not to allow undefined
+        stereochemistry.
+    :param mol: The optional RDKit molecule to directly use for the
+        ligand.
     :return: The prepared ligand.
     """
     try:
@@ -641,10 +655,11 @@ def prep_protein(
     """Prepare a protein for use in OpenMM.
 
     :param protein_file: Path to the protein file.
-    :param temp_file: Path to the temporary file to save the prepared protein to.
+    :param temp_file: Path to the temporary file to save the prepared
+        protein to.
     :param relax_protein: Whether or not to relax the protein.
-    :param remove_initial_protein_hydrogens: Whether or not to remove the initial protein
-        hydrogens.
+    :param remove_initial_protein_hydrogens: Whether or not to remove
+        the initial protein hydrogens.
     :param add_solvent: Whether or not to add solvent to the protein.
     :return: The prepared protein.
     """
@@ -742,8 +757,10 @@ def generate_system(
 
     :param modeller: The Modeller object for the protein-ligand complex.
     :param ligands: The prepared ligands.
-    :param num_particles_protein: The number of particles in the protein.
-    :param num_particles_total: The total number of particles in the complex.
+    :param num_particles_protein: The number of particles in the
+        protein.
+    :param num_particles_total: The total number of particles in the
+        complex.
     :param name: The name of the system.
     :param force_fields: The force fields to use.
     :param relax_protein: Whether or not to relax the protein.
@@ -823,9 +840,12 @@ def setup_simulation(
     :param modeller: The Modeller object for the protein-ligand complex.
     :param system: The OpenMM system for the protein-ligand complex.
     :param platform: The OpenMM platform to use.
-    :param platform_properties: The properties to use with the OpenMM platform.
-    :param temperature: The temperature to use with a LangevinIntegrator.
-    :param friction_coeff: The friction coefficient to use with a LangevinIntegrator.
+    :param platform_properties: The properties to use with the OpenMM
+        platform.
+    :param temperature: The temperature to use with a
+        LangevinIntegrator.
+    :param friction_coeff: The friction coefficient to use with a
+        LangevinIntegrator.
     :param step_size: The step size to use with a LangevinIntegrator.
     :return: The setup OpenMM simulation.
     """
@@ -848,7 +868,8 @@ def save_with_rdkit(
     :param file_path: The path to save the molecule to.
     :param conformer_index: The index of the conformer to save.
     :param name: The name to give the molecule.
-    :param mol: The optional RDKit molecule to directly use for the ligand.
+    :param mol: The optional RDKit molecule to directly use for the
+        ligand.
     """
     # NOTE: use RDKit because the `.to_file()` method does not allow picking conformation and only writes first one
     if mol is None:
@@ -859,7 +880,7 @@ def save_with_rdkit(
     MolToMolFile(mol, str(file_path), confId=conformer_index)
 
 
-@timeout_decorator.timeout(OPTIMIZATION_TIMEOUT_IN_SECONDS, use_signals=False)
+@timeout(OPTIMIZATION_TIMEOUT_IN_SECONDS, use_signals=False)
 def optimize_ligand_in_pocket(
     protein_file: Path,
     ligand_file: Path,
@@ -879,7 +900,7 @@ def optimize_ligand_in_pocket(
     relax_protein: bool = False,
     remove_initial_protein_hydrogens: bool = False,
     assign_each_ligand_unique_force: bool = False,
-    model_ions: bool = False,
+    model_ions: bool = True,
     cache_files: bool = True,
     assign_partial_charges_manually: bool = False,
     report_initial_energy_only: bool = False,
@@ -1208,7 +1229,7 @@ def optimize_ligand_in_pocket(
     config_path="../../configs/model",
     config_name="minimize_energy.yaml",
 )
-def minimize_energy(cfg: DictConfig):
+def minimize_energy(cfg: DictConfig) -> Optional[Dict[str, Any]]:
     """Minimize the energy of a ligand in a protein pocket using OpenMM."""
     logger.setLevel(cfg.log_level)
 
@@ -1236,28 +1257,68 @@ def minimize_energy(cfg: DictConfig):
         shutil.copyfile(ligand_file_path, temp_ligand_file_path)
         logger.info("Performing iteration 0 of complex relaxation")
 
-    num_attempts = 0
-    results_dict = optimize_ligand_in_pocket(
-        protein_file=temp_protein_file_path,
-        ligand_file=temp_ligand_file_path,
-        output_file=output_file_path,
-        protein_output_file=protein_output_file_path,
-        complex_output_file=complex_output_file_path,
-        temp_dir=temp_directory,
-        prep_only=prep_only,
-        name=cfg.name,
-        platform_name=cfg.platform,
-        cuda_device_index=cfg.cuda_device_index,
-        add_solvent=cfg.add_solvent,
-        relax_protein=cfg.relax_protein,
-        remove_initial_protein_hydrogens=cfg.remove_initial_protein_hydrogens,
-        assign_each_ligand_unique_force=cfg.assign_each_ligand_unique_force,
-        report_initial_energy_only=cfg.report_initial_energy_only,
-        model_ions=cfg.model_ions,
-        cache_files=cfg.cache_files,
-        assign_partial_charges_manually=cfg.assign_partial_charges_manually,
-        tolerance=2.39 if cfg.relax_protein else 0.01,
-    )
+    try:
+        num_attempts = 0
+        results_dict = optimize_ligand_in_pocket(
+            protein_file=temp_protein_file_path,
+            ligand_file=temp_ligand_file_path,
+            output_file=output_file_path,
+            protein_output_file=protein_output_file_path,
+            complex_output_file=complex_output_file_path,
+            temp_dir=temp_directory,
+            prep_only=prep_only,
+            name=cfg.name,
+            platform_name=cfg.platform,
+            cuda_device_index=cfg.cuda_device_index,
+            add_solvent=cfg.add_solvent,
+            relax_protein=cfg.relax_protein,
+            remove_initial_protein_hydrogens=cfg.remove_initial_protein_hydrogens,
+            assign_each_ligand_unique_force=cfg.assign_each_ligand_unique_force,
+            report_initial_energy_only=cfg.report_initial_energy_only,
+            model_ions=cfg.model_ions,
+            cache_files=cfg.cache_files,
+            assign_partial_charges_manually=cfg.assign_partial_charges_manually,
+            tolerance=2.39 if cfg.relax_protein else 0.01,
+        )
+    except Exception as e:
+        logger.error(
+            f"Complex relaxation was not fully successful due to: {e}. Copying the input files as the relaxed output files."
+        )
+        # organize output files
+        shutil.copyfile(ligand_file_path, output_file_path)
+        try:
+            if complex_output_file_path is not None:
+                os.remove(complex_output_file_path)
+        except OSError:
+            pass
+
+        logger.info(f"Finalizing complex relaxation with relax_protein={cfg.relax_protein}")
+
+        if cfg.relax_protein:
+            # organize output files
+            shutil.copyfile(protein_file_path, protein_output_file_path)
+            # clean up temporary files
+            try:
+                os.remove(temp_protein_file_path)
+            except OSError:
+                pass
+            try:
+                os.remove(temp_ligand_file_path)
+            except OSError:
+                pass
+
+            temp_name = temp_protein_file_path.stem if cfg.name is None else cfg.name
+            try:
+                os.remove(temp_directory / f"{temp_name}_prepped_protein.pdb")
+            except OSError:
+                pass
+            try:
+                os.remove(temp_directory / f"{temp_name}_prepped_ligand.sdf")
+            except OSError:
+                pass
+
+        return None
+
     if prep_only:
         sys.exit(0)
 
