@@ -7,7 +7,7 @@ import logging
 import os
 import traceback
 from pathlib import Path
-
+import time
 import hydra
 import rootutils
 import torch
@@ -17,9 +17,10 @@ from omegaconf import DictConfig, open_dict
 rootutils.setup_root(__file__, indicator=".project-root", pythonpath=True)
 
 from posebench import register_custom_omegaconf_resolvers
+from cogligandbench.utils.log import get_custom_logger
 
-logging.basicConfig(format="[%(asctime)s] {%(filename)s:%(lineno)d} %(levelname)s - %(message)s")
-logger = logging.getLogger(__name__)
+# logging.basicConfig(format="[%(asctime)s] {%(filename)s:%(lineno)d} %(levelname)s - %(message)s")
+# logger = logging.getLogger(__name__)
 
 
 def run_chai_inference(fasta_file: str, cfg: DictConfig):
@@ -52,7 +53,7 @@ def run_chai_inference(fasta_file: str, cfg: DictConfig):
 
 @hydra.main(
     version_base="1.3",
-    config_path="../../configs/model",
+    config_path="../../cogligand_config/model",
     config_name="chai_inference.yaml",
 )
 def main(cfg: DictConfig):
@@ -60,6 +61,7 @@ def main(cfg: DictConfig):
 
     :param cfg: Configuration dictionary from the hydra YAML file.
     """
+    logger = get_custom_logger(f"chai-1", cfg.logging, f"chai-1_timing_{cfg.dataset}_{cfg.repeat_index}.log")  
     if cfg.pocket_only_baseline:
         with open_dict(cfg):
             cfg.input_dir = cfg.input_dir.replace(cfg.dataset, f"{cfg.dataset}_pocket_only")
@@ -90,10 +92,13 @@ def main(cfg: DictConfig):
             with open_dict(cfg):
                 cfg.inference_dir_name = item
             try:
+                start_time = time.time()
                 run_chai_inference(
                     fasta_file=fasta_filepath,
                     cfg=cfg,
                 )
+                end_time = time.time()
+                logger.info(f"Total time taken for inference on item `{item}`: {end_time - start_time:.2f}s")
                 if os.path.isfile(os.path.join(cfg.output_dir, item, "error_log.txt")):
                     os.remove(os.path.join(cfg.output_dir, item, "error_log.txt"))
             except Exception as e:

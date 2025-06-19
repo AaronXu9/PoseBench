@@ -180,7 +180,7 @@ class ICMBatchDocking:
         if not pairs:
             print("No valid protein-ligand pairs found.")
             return
-
+        sufix = 'p' if self.project_name == 'plinder_set' else ''
         for pair in pairs:
             protein_name = pair["protein_name"]  # e.g. "5S8I_2LY"
             
@@ -188,7 +188,7 @@ class ICMBatchDocking:
             project_dir = os.path.join(
                 self.icm_docking_dir,
                 f"ICM_{self.docking_maps}_docking_maps",
-                f"protein_{protein_name}"
+                f"{sufix}_{protein_name}"
             )
             
             out_dir = os.path.join(

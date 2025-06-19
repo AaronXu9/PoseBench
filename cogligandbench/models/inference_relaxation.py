@@ -145,7 +145,14 @@ def relax_inference_results(
                 )
             ]
         elif cfg.method == "chai-lab":
-            raise NotImplementedError("Cannot subset `chai-lab` protein predictions at this time.")
+            protein_filepaths = [
+                protein_filepath
+                for protein_filepath in protein_filepaths
+                if any(
+                    protein_filepath.parent.stem == ligand_filepath.parent.stem
+                    for ligand_filepath in ligand_filepaths
+                )
+            ]
         else:
             protein_filepaths = [
                 protein_filepath
@@ -308,23 +315,23 @@ def relax_single_filepair(
         elif cfg.method == "chai-lab":
             output_filepath = Path(
                 output_file_dir,
-                ligand_filepath.parent.stem,
+                ligand_filepath.parent.name,
                 f"{ligand_filepath.stem}_relaxed.sdf",
             )
             protein_output_filepath = Path(
                 output_file_dir,
-                protein_filepath.parent.stem,
+                protein_filepath.parent.name,
                 f"{protein_filepath.stem}_relaxed.pdb",
             )
         elif cfg.method == "vina":
             output_filepath = Path(
                 output_file_dir,
-                ligand_filepath.stem,
+                ligand_filepath.parent.name,
                 f"{ligand_filepath.stem}_relaxed.sdf",
             )
             protein_output_filepath = Path(
                 output_file_dir,
-                protein_filepath.stem,
+                protein_filepath.parent.name,
                 f"{protein_filepath.stem}_relaxed.pdb",
             )
         else:
@@ -332,13 +339,13 @@ def relax_single_filepair(
                 # handle for ranked outputs such as those of DiffDock
                 output_filepath = Path(
                     output_file_dir,
-                    ligand_filepath.parent.stem,
-                    f"{ligand_filepath.parent.stem}_relaxed.sdf",
+                    ligand_filepath.parent.name,
+                    f"{ligand_filepath.stem}_relaxed.sdf",
                 )
                 protein_output_filepath = Path(
                     output_file_dir,
-                    ligand_filepath.parent.stem,
-                    f"{'_'.join(protein_filepath.stem.split('_')[:2])}_relaxed.pdb",
+                    ligand_filepath.parent.name,
+                    f"{'_'.join(protein_filepath.name.split('_')[:2])}_relaxed.pdb",
                 )
             else:
                 output_filepath = Path(output_file_dir, f"{ligand_filepath.stem}_relaxed.sdf")
@@ -394,7 +401,7 @@ def relax_single_filepair(
 
 @hydra.main(
     version_base="1.3",
-    config_path="../../configs/model",
+    config_path="../../cogligand_config/model",
     config_name="inference_relaxation.yaml",
 )
 def main(cfg: DictConfig):

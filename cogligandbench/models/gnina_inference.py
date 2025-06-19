@@ -340,6 +340,7 @@ from rdkit import Chem
 from rdkit.Chem import AllChem
 from meeko import PDBQTMolecule
 from omegaconf import DictConfig
+import gzip
 
 # Set up logging to capture error messages
 logging.basicConfig(level=logging.INFO)
@@ -376,6 +377,54 @@ def manually_correct_pdbqt(input_filepath, corrected_filepath):
                     line_parts[11] = "C"  # Replace "CG0" with a valid atom type "C"
                     line = " ".join(line_parts) + "\n"
             outfile.write(line)
+
+
+def decompress_file(file_path):
+    decompressed_file_path = file_path[:-3]  # Remove '.gz' extension
+    
+    with gzip.open(file_path, 'rb') as compressed_file:
+        with open(decompressed_file_path, 'wb') as decompressed_file:
+            decompressed_file.write(compressed_file.read())
+    
+    return decompressed_file_path
+
+def load_sdf(file_path):
+    suppl = Chem.ForwardSDMolSupplier(file_path, removeHs=False)
+    mols = [mol for mol in suppl if mol is not None]
+    return mols
+
+def extract_scores(mols):
+    results = []
+    for mol in mols:
+        base_name = mol.GetProp('_Name')
+        
+        if mol.HasProp('CNNscore'):
+            cnn_score = float(mol.GetProp('CNNscore'))
+        else:
+            cnn_score = None
+        
+        results.append({
+            'base_name': base_name,
+            'cnn_score': cnn_score,
+            'mol': mol
+        })
+    
+    return results
+
+
+def rank_and_save_poses(results, output_dir):
+    results.sort(key=lambda x: x['cnn_score'], reverse=True)
+    
+    for i, result in enumerate(results, start=1):
+        mol = result['mol']
+        output_name = f"rank{i}_score{result['cnn_score']:.2f}.sdf"
+        output_path = os.path.join(output_dir, output_name)
+        
+        writer = Chem.SDWriter(output_path)
+        writer.write(mol)
+        writer.close()
+    
+    print(f"Ranked poses saved to directory: {output_dir}")
 
 
 def write_gnina_outputs(
@@ -480,6 +529,7 @@ def write_gnina_outputs(
     config_path="../../configs/model",
     config_name="gnina_inference.yaml",
 )
+
 def main(cfg: DictConfig):
     """Run inference using AutoDock Vina on predicted protein structures and binding sites.
 

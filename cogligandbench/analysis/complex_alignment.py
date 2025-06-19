@@ -291,7 +291,7 @@ def align_complex_to_protein_only(
 
 @hydra.main(
     version_base="1.3",
-    config_path="../../configs/analysis",
+    config_path="../../cogligand_config/analysis",
     config_name="complex_alignment.yaml",
 )
 def main(cfg: DictConfig):

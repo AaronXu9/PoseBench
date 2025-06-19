@@ -1,40 +1,42 @@
+
 call _startup
 show version
 
-# set up constants 
-DATA_DIR = "/Users/aoxu/projects/DrugDiscovery/PoseBench/data/plinder_set"
-ICB_OUT_DIR = "/Users/aoxu/projects/DrugDiscovery/PoseBench/forks/ICM/inference/plinder_set_0"
-MAPS_OUT_DIR = "/Users/aoxu/projects/DrugDiscovery/PoseBench/forks/ICM/ICM_manual_docking_maps/plinder_set_0"
+DATA_DIR = "/home/aoxu/projects/PoseBench/data/plinder_set"
+# openFile "/home/aoxu/projects/PoseBench/data/plinder_set/1afb__1__1_A__1_D_1_F/1afb__1__1_A__1_D_1_F_protein.pdb" 0 yes no no no " append"
+# openFile "/home/aoxu/projects/PoseBench/data/plinder_set/1afb__1__1_A__1_D_1_F/1afb__1__1_A__1_D_1_F_ligand.sdf" 0 yes no no no " append"
 
-#openFile "/Users/aoxu/projects/DrugDiscovery/PoseBench/forks/ICM/inference/icm_manual_posebusters_benchmark_outputs_1/1afb__1__1_A__1_D_1_F/1afb__1__1_A__1_D_1_F.icb" 0 yes no no no " append" 
-#1 1 icb
-
-# initiate dockign project 
-openFile ICB_OUT_DIR+"/1afb__1__1.A__1.D_1.F/1afb__1__1.A__1.D_1.F.icb" 0 yes no no no " append"
-
-as_graph = a_1afb__1__1_A__1_D_1_F_ligand_1.
-S_out = Sarray( s_projectsDir + "icmdock/" ) 
-s_out = ( Nof(as_graph & a_1afb__1__1_A__1_D_1_F_protein. ) > 0 )
-as_graph = Sphere(as_graph a_1afb__1__1_A__1_D_1_F_protein. 5. ) 
-print s_out 
-
-# create dockign maps 
-if ( ! Exist( MAPS_OUT_DIR+"/protien_1afb__1__1_A__1_D_1_F/" ) ) make directory MAPS_OUT_DIR+"/protien_1afb__1__1_A__1_D_1_F/"
-set directory MAPS_OUT_DIR+"/protien_1afb__1__1_A__1_D_1_F/" 
-currentDockProj.data[8] = "yes" 
-if( Type( as_graph ) == "aselection" ) tempsel = as_graph & a_1afb__1__1_A__1_D_1_F_protein. 
-if( Type( as_graph ) == "unknown" ) tempsel = as_graph & a_1afb__1__1_A__1_D_1_F_protein. 
-dock2SetupReceptor "protein_1afb__1__1_A__1_D_1_F" a_1afb__1__1_A__1_D_1_F_protein. tempsel yes no ? "enhancedBorn" : "none" 
-
- if( yes & currentDockProj.l_readyReceptor ) dock5CalcMaps "protein_1afb__1__1_A__1_D_1_F" 0.5 4.0 no 
- currentDockProj.data[1] = "protein_1afb__1__1_A__1_D_1_F"
+openFile DATA_DIR+"/1afb__1__1.A__1.D_1.F/1afb__1__1.A__1.D_1.F_protein.pdb" 0 yes no no no " append"
+openFile DATA_DIR+"/1afb__1__1.A__1.D_1.F/1afb__1__1.A__1.D_1.F_ligand.sdf" 0 yes no no no " append"
 
 
- s_out = Path() 
- S_out = Name( model, "DOCKING" ) 10.00 2 no no no no 
+out_dir = "/home/aoxu/projects/PoseBench/forks/ICM/inference/plinder_set_0"
+s_out = "1afb__1__1_A__1_D_1_F_ligand"
+v1afb__1__1_A__1_D_1_F_ligand.NAME_[1] = s_out
 
- if ( ! Exist( ICB_OUT_DIR+"/1afb__1__1_A__1_D_1_F/" ) ) make directory ICB_OUT_DIR+"/1afb__1__1_A__1_D_1_F" 
- s_out = ICB_OUT_DIR+"/1afb__1__1_A__1_D_1_F/1afb__1__1_A__1_D_1_F.icb" 
- writeProject s_out s_currentProject!="" 
+I_out = Index( v1afb__1__1_A__1_D_1_F_ligand selection cursor ) 
+if( Type( v1afb__1__1_A__1_D_1_F_ligand.crysym ) == "sarray" ) then 
+  read mol input = Sum( Sarray( v1afb__1__1_A__1_D_1_F_ligand.mol [I_out] ) + Sarray(Nof(I_out),"> <crysym>\\n") + Sarray( v1afb__1__1_A__1_D_1_F_ligand.crysym [I_out] ) + Sarray(Nof(I_out),"\\n\\n") , "$$$$\\n" ) 
+else 
+  parrayToMol v1afb__1__1_A__1_D_1_F_ligand.mol [ I_out ] 
+endif 
+
+
+S_out = Name( Obj( a_1afb__1__1_A__1_D_1_F_protein. ) ) 
+   for i=1,Nof(S_out) 
+     convertObject a_$S_out[i]. 2==1 yes yes yes yes yes no ""+( 2==2 ? "water=tight ":( 2==3 ? "water=tight2.5 ":"") )+( no ? "tautomer ":"" ) + ( no ? "amino_name_fix " : "" ) 
+   endfor 
+   assign sstructure a_A 
+   cool a_ no 
+
+   moveMol Mol( a_1afb__1__1_A__1_D_1_F_ligand.m/1/c1 ) ""
+
+# save the project
+# if ( ! Exist( "/home/aoxu/projects/PoseBench/forks/ICM/inference/1afb__1__1_A__1_D_1_F/" ) ) make directory "/home/aoxu/projects/PoseBench/forks/ICM/inference/1afb__1__1_A__1_D_1_F" 
+# s_out = "/home/aoxu/projects/PoseBench/forks/ICM/inference/1afb__1__1_A__1_D_1_F/1afb__1__1_A__1_D_1_F.icb" 
+# writeProject s_out s_currentProject!=""
   
-# quit
+ if ( ! Exist( out_dir+"/1afb__1__1_A__1_D_1_F/" ) ) make directory out_dir+"/1afb__1__1_A__1_D_1_F/"
+ s_out = out_dir + "/1afb__1__1_A__1_D_1_F/1afb__1__1_A__1_D_1_F.icb" 
+ writeProject s_out s_currentProject!=""
+  quit

@@ -6,11 +6,13 @@ import yaml
 import platform
 import subprocess
 import shutil
+import glob
 from pathlib import Path
-
+import time 
+from tqdm import tqdm
 import rootutils
 rootutils.setup_root(__file__, indicator=".project-root", pythonpath=True)
-
+from cogligandbench.utils.log import setup_base_logging, get_custom_logger
 
 @dataclass
 class ICMDockingConfig:
@@ -18,7 +20,8 @@ class ICMDockingConfig:
     # Required parameters
     dataset: str
     data_dir: str
-    icm_script_template: str
+    icm_preprocess_script_template: str
+    icm_pocket_identification_script_template: str
     icm_executable: str
     icm_docking_dir: str
     icm_map_dir: str
@@ -53,7 +56,8 @@ class ICMDockingConfig:
     logging: Dict[str, Any] = field(default_factory=lambda: {
         "level": "INFO",
         "file": None,
-        "console": True
+        "console": True,
+        "log_dir": "/home/aoxu/projects/PoseBench/logs"
     })
 
     def __post_init__(self):
@@ -113,24 +117,67 @@ class ICMBatchDocking:
         log_settings = config.logging
         log_file = log_settings.get('file')
         log_level = log_settings.get('level', 'INFO')
+        # Add name mapping dictionary
+        self.protein_name_map = {}
+        self.max_name_length = 24
         
-        # # Import and set up logger if the module is available
-        # try:
-        #     from icm_logger import ICMLogger
-        #     self.logger = ICMLogger(
-        #         log_file=log_file,
-        #         console_level=log_level,
-        #         file_level='DEBUG'
-        #     )
-        # except ImportError:
-        #     # Fallback to print statements if custom logger is not available
-        #     self.logger = None
-        #     print(f"Initializing ICMBatchDocking with project: {config.dataset}")
-
+        # Path for storing the name mapping
+        self.mapping_file = os.path.join(
+            self.config.icm_docking_dir,
+            f"ICM_{self.config.docking_maps}_docking_maps",
+            self.config.dataset,
+            "protein_name_map.json"
+        )
+        
+        # Try to load existing mapping if exists
+        if os.path.exists(self.mapping_file):
+            try:
+                with open(self.mapping_file, 'r') as f:
+                    self.protein_name_map = json.load(f)
+                print(f"Loaded existing protein name mapping from {self.mapping_file}")
+            except:
+                print("Could not load existing mapping, creating new one")
+    
         # Apply platform-specific environment settings
         if platform.system() == "Darwin" and config.icm_executable:
             self.env.pop("ICMHOME", None)
             self.env["ICMHOME"] = config.icm_executable
+    
+    def get_shortened_protein_name(self, protein_name):
+        """Get a shortened protein name suitable for ICM projects."""
+        if protein_name in self.protein_name_map:
+            return self.protein_name_map[protein_name]
+        
+        # Replace dots with underscores
+        safe_name = protein_name.replace('.', '_')
+        
+        # If name is already short enough, use it
+        if len(safe_name) <= self.max_name_length:
+            self.protein_name_map[protein_name] = safe_name
+            return safe_name
+        
+        # For long names, create a shortened version
+        parts = safe_name.split('_')
+        pdb_id = parts[0] if len(parts) > 0 else ""
+        
+        # Create a hash from the full name for uniqueness
+        import hashlib
+        name_hash = hashlib.md5(safe_name.encode()).hexdigest()[:6]
+        
+        # Combine PDB ID with hash
+        shortened_name = f"{pdb_id}_{name_hash}"
+        if len(shortened_name) > self.max_name_length:
+            shortened_name = shortened_name[:self.max_name_length]
+        
+        self.protein_name_map[protein_name] = shortened_name
+        print(f"Mapping protein name: {protein_name} → {shortened_name}")
+        
+        # Save the updated mapping
+        os.makedirs(os.path.dirname(self.mapping_file), exist_ok=True)
+        with open(self.mapping_file, 'w') as f:
+            json.dump(self.protein_name_map, f, indent=2)
+            
+        return shortened_name
     
     def is_valid_protein_directory(self, dirname):
         """
@@ -188,8 +235,12 @@ class ICMBatchDocking:
         print(f"Found {len(pairs)} valid protein-ligand pairs")
         return sorted(pairs, key=lambda x: x['protein_name'])
 
-    def create_modified_script(self, data_dir, template_path, script_out_path, icb_out_dir, protein_name):
+    def create_modified_script(self, data_dir, template_path, script_out_path, 
+                              icb_out_dir, original_protein_name, shortened_protein_name=None):
         """Create a modified ICM script with the correct protein name."""
+        if shortened_protein_name is None:
+            shortened_protein_name = self.get_shortened_protein_name(original_protein_name.replace('.', '_') if self.config.dataset == "plinder_set" else original_protein_name)
+        protein_name = original_protein_name.replace('.', '_') if self.config.dataset == "plinder_set" else original_protein_name
         with open(template_path, 'r') as f:
             template_content = f.read()
         
@@ -198,22 +249,23 @@ class ICMBatchDocking:
         template_content = template_content.replace("ICBOutDirHolder", icb_out_dir)
         template_content = template_content.replace("DataDirHolder", data_dir)
         template_content = template_content.replace("MapsOutDirHolder", self.config.icm_map_dir)
+        
         # Check if the current dataset is "plinder_set"
         if self.config.dataset == "plinder_set":
-            # Create a safe version of the protein name (remove '.')
-            safe_protein_name = protein_name.replace('.', '_')
             modified_lines = []
             for line in template_content.splitlines():
                 # If this is a file-loading line, use the original protein_name.
                 if line.lstrip().startswith("openFile") and self.stage == 'preprocessing':
+                    modified_lines.append(line.replace("ProteinNameHolder", original_protein_name))
+                if line.lstrip().startswith("openFile") and self.stage == 'identify_pocket':
                     modified_lines.append(line.replace("ProteinNameHolder", protein_name))
                 else:
                     # For all other lines, use the safe version.
-                    modified_lines.append(line.replace("ProteinNameHolder", safe_protein_name))
+                    modified_lines.append(line.replace("ProteinNameHolder", protein_name).replace("MapProjectNameHolder", shortened_protein_name))
             modified_content = "\n".join(modified_lines)
         else:
             # For other datasets, use the original protein_name everywhere.
-            modified_content = template_content.replace("ProteinNameHolder", protein_name)
+            modified_content = template_content.replace("ProteinNameHolder", original_protein_name)
         
         with open(script_out_path, 'w') as f:
             f.write(modified_content)
@@ -244,17 +296,18 @@ class ICMBatchDocking:
         output_file = os.path.join(outdir_path, protein_name, f'answers_{protein_name}.sdf')
         
         # Ensure the output directory exists
+        suffix = "p" if self.config.dataset == 'plinder_set' else "protein"
         os.makedirs(os.path.dirname(output_file), exist_ok=True)
 
         cmd = [
             self.config.icm_executable,
             self.config.icm_dockscan_path,
             "-s",                      # run silently
-            "-a", f"thorough={thorough}.",
+            "-a", f"effort={thorough}.",
             f"name={icm_ligand_name}",
             f"input={ligand_path}",
             "-S", f"confs={confs}",
-            f"protein_{protein_name}",
+            f"{os.path.basename(protein_project_dir)}",
             f"output={output_file}",
         ]
         
@@ -265,32 +318,38 @@ class ICMBatchDocking:
         """Run docking for all protein-ligand pairs with optional parameter overrides."""
         # Merge config params with provided overrides
         params = {**self.config.docking_params, **docking_params}
-        
+        logger = get_custom_logger(f"icm", self.config.logging, f"icm_timing_{self.config.dataset}_{self.config.repeat_index}.log") 
         pairs = self.get_protein_ligand_pairs()
         if not pairs:
             print("No valid protein-ligand pairs found.")
             return
-
-        for pair in pairs:
-            protein_name = pair["protein_name"]
+        
+        sufix = "p" if self.config.dataset == 'plinder_set' else "protein"
+        out_dir = os.path.join(
+            self.config.icm_docking_dir, 
+            "inference",
+            self.config.dataset + "_" + str(self.config.repeat_index)
+        )
+        os.makedirs(out_dir, exist_ok=True)
+        
+        for pair in tqdm(pairs):
+            protein_name = pair["protein_name"].replace('.', '_') if self.config.dataset == "plinder_set" else protein_name
+            shortened_protein_name = self.get_shortened_protein_name(protein_name)
             
-            # Skip specific proteins for posebuster_benchmark if needed
-            if self.config.dataset == 'posebuster_benchmark' and protein_name < "7LCU_XTA":
+            if self.config.skip_existing and (
+                os.path.exists(os.path.join(self.config.icb_out_dir, protein_name, f"answers_{protein_name}.sdf")
+                               or os.path.exits(os.path.join(self.config.icb_out_dir, protein_name, f"rank1.sdf")))):
+                 
+                print(f"Skipping existing script for {pair['ligand_name']}.")
                 continue
-                
+
             # The project folder named "protein_<protein_name>"
             project_dir = os.path.join(
                 self.config.icm_docking_dir,
                 f"ICM_{self.config.docking_maps}_docking_maps",
-                f"protein_{protein_name}"
+                self.config.dataset,
+                f"{sufix}_{shortened_protein_name}"
             )
-            
-            out_dir = os.path.join(
-                self.config.icm_docking_dir, 
-                "inference",
-                f"{self.config.dataset}_docking_results",
-            )
-            os.makedirs(out_dir, exist_ok=True)
 
             # Ensure we have the project_dir
             if not os.path.isdir(project_dir):
@@ -298,6 +357,7 @@ class ICMBatchDocking:
                 continue
             
             try:
+                start_time = time.time()
                 self._run_icm_dockscan(
                     protein_name=protein_name,
                     protein_project_dir=project_dir,
@@ -305,16 +365,20 @@ class ICMBatchDocking:
                     ligand_path=pair["sdf_path"],
                     **params
                 )
+                elapsed_time = time.time() - start_time
+                logger.info(f"{protein_name} docking time: {elapsed_time:.2f} seconds")
                 print(f"Docking completed successfully for {protein_name}.")
             
             except subprocess.CalledProcessError as e:
                 print(f"Error during docking for {protein_name}: {str(e)}")
 
     def run_docking_preparation(self, stage="preprocessing"):
-        """Run docking preparation for all protein-ligand pairs"""
+        """
+        run docking inside an ICM session for all protein-ligand pairs.
+        """
         self.stage = stage
         pairs = self.get_protein_ligand_pairs()
-        
+        sufix = "p" if self.config.dataset == 'plinder_set' else "protein"
         if not pairs:
             print("No valid protein-ligand pairs found. Please check your directory structure and file names.")
             return
@@ -325,33 +389,119 @@ class ICMBatchDocking:
         os.makedirs(work_dir, exist_ok=True)
         
         for pair in pairs:
+            original_protein_name = pair["protein_name"]
+            shortened_protein_name = self.get_shortened_protein_name(original_protein_name)
+            protein_name = pair["protein_name"].replace('.', '_') if self.config.dataset == "plinder_set" else protein_name
             print(f"\nProcessing {pair['ligand_name']}...")
-            
 
+            # skipping existing results 
+            maps_dir = os.path.join(
+                self.config.icm_docking_dir, 
+                f"ICM_{self.config.docking_maps}_docking_maps", 
+                f"{self.config.dataset}", 
+                f"{sufix}_{shortened_protein_name}"
+            )
+            if stage=="preprocessing" and os.path.exists(self.config.icb_out_dir, protein_name, f"{protein_name}.icb"):   
+                print(f"Skipping existing script for {pair['ligand_name']}.")
+                continue
+            if stage=="identify_pocket" and glob.glob(os.path.join(maps_dir, "*.map")):
+                print(f"Skipping existing script for {pair['ligand_name']}.")
+                continue
+            if self.config.skip_existing and (
+                os.path.exists(os.path.join(self.config.icb_out_dir, protein_name, f"answers_{protein_name}.sdf")
+                               or os.path.exits(os.path.join(self.config.icb_out_dir, protein_name, f"rank1.sdf")))):
+                 
+                print(f"Skipping existing script for {pair['ligand_name']}.")
+                continue
             os.makedirs(work_dir, exist_ok=True)
             
             # Create modified script for this protein
             script_path = os.path.join(work_dir, f"{pair['ligand_name']}_script.icm")
+            icm_script_template = self.config.icm_preprocess_script_template if stage == "preprocessing" else self.config.icm_pocket_identification_script_template
             
             self.create_modified_script(
                 self.config.data_dir, 
-                self.config.icm_script_template, 
+                icm_script_template, 
                 script_path, 
                 self.config.icb_out_dir, 
                 pair['protein_name']
             )
             
-            # Create the subdirectories for docking maps
-            os.makedirs(
-                os.path.join(
-                    self.config.icm_docking_dir, 
-                    f"ICM_{self.config.docking_maps}_docking_maps", 
-                    f"{self.config.dataset}", 
-                    f"protein_{pair['protein_name']}"
-                ), 
-                exist_ok=True
+            # Create directories with shortened name
+            maps_dir = os.path.join(
+                self.config.icm_docking_dir, 
+                f"ICM_{self.config.docking_maps}_docking_maps", 
+                f"{self.config.dataset}", 
+                f"{sufix}_{shortened_protein_name}"
             )
+            os.makedirs(maps_dir, exist_ok=True)
 
+            # Run ICM command
+            try:
+                cmd = [self.config.icm_executable, "-g", script_path]
+                print(f"Running command: {cmd}")
+                subprocess.run(cmd, check=True, env=self.env)
+                print(f"Successfully completed preparation for {pair['ligand_name']}")
+            except subprocess.CalledProcessError as e:
+                print(f"Error processing {pair['ligand_name']}: {str(e)}")
+    
+    def run_dock_icm_session(self):
+        import glob
+
+        def create_modified_docking_script(protein_name, input_path, script_out_path, output_path) -> str: 
+            """Create a modified ICM script with the correct protein name."""
+            template_path = self.config.icm_script_template
+            
+            with open(template_path, 'r') as f:
+                template_content = f.read()
+            
+            # First, replace the dataset placeholder in the entire template.
+            template_content = template_content.replace("InputPathHolder", input_path)
+            template_content = template_content.replace("OutputPathHolder", output_path)
+            template_content = template_content.replace("ProteinNameHolder", protein_name)
+            
+            with open(script_out_path, 'w') as f:
+                f.write(template_content)
+        
+        """ 
+        (Inside ICM GUI) Run docking for all protein-ligand pairs with optional parameter overrides. ()
+        """
+        # Merge config params with provided overrides
+        pairs = self.get_protein_ligand_pairs()
+        if not pairs:
+            print("No valid protein-ligand pairs found.")
+            return
+        sufix = "p" if self.config.dataset == 'plinder_set' else "protein"
+        map_dir = self.config.icm_map_dir
+        error_proteins = []
+        for pair in pairs:
+            protein_name =  pair["protein_name"]
+            input_ligand_path = pair['sdf_path']
+            protein_name = protein_name.replace('.', '_') if self.config.dataset == "plinder_set" else protein_name
+            
+            protein_map_dir = os.path.join(map_dir, f"{sufix}_{protein_name}")
+            out_dir_name = self.config.dataset + "_" + str(self.config.repeat_index)
+            # Skip specific proteins for posebuster_benchmark if needed
+            if self.config.dataset == 'posebuster_benchmark' and protein_name < "7LCU_XTA":
+                continue
+        
+            map_files = glob.glob(os.path.join(protein_map_dir, "*.map"))
+            if not map_files:
+                print(f"No map files found in {protein_map_dir}.")
+                continue
+
+            out_dir = os.path.join(
+                self.config.icm_docking_dir, 
+                "inference",
+                out_dir_name,
+            )
+            os.makedirs(out_dir, exist_ok=True)
+            work_dir = os.path.join(os.path.curdir, "forks/ICM",
+                                    "icm_docking_scripts", "dock")
+            out_filepath = os.path.join(out_dir, f"answers_{protein_name}.sdf")
+            script_path = script_path = os.path.join(work_dir, f"{pair['ligand_name']}_script.icm")
+            create_modified_docking_script(protein_name, input_ligand_path, script_path, out_filepath)
+            
             # Run ICM command
             try:
                 cmd = [
@@ -360,40 +510,31 @@ class ICMBatchDocking:
                     script_path
                 ]
                 print(f"Running command: {cmd}")
-                subprocess.run(cmd, check=True, env=self.env)
+                subprocess.run(cmd, check=True, env=self.env, timeout=300)
                 
                 print(f"Successfully completed docking for {pair['ligand_name']}")
                 
             except subprocess.CalledProcessError as e:
                 print(f"Error processing {pair['ligand_name']}: {str(e)}")
+                error_proteins.append(protein_name)
+            except subprocess.TimeoutExpired:
+                print(f"{protein_name}_Process timed out, continuing with the rest of the code")
+                # Continue with your code here
+                error_proteins.append(protein_name)
+        
+        print(error_proteins)
 
 
 # Example usage
 if __name__ == "__main__":
     # Load configuration from file
-
     # config = ICMDockingConfig.from_file('cogligand_config/model/icm_inference.yaml')
-    config = ICMDockingConfig.from_file('cogligand_config/data/icm_identify_pocket.yaml')
-    
-    # # Or create configuration programmatically
-    # config = ICMDockingConfig(
-    #     data_dir="/home/aoxu/projects/PoseBench/data/posebusters_benchmark_set",
-    #     icm_script_template="icm_docking_scripts_template/protein_template_auto_pocket.icm",
-    #     icm_executable="/home/aoxu/icm-3.9-4/icm64",
-    #     icm_docking_dir="/home/aoxu/projects/PoseBench/forks/ICM",
-    #     subset_dir="/home/aoxu/projects/PoseBench/forks/DiffDock/inference/diffdock_posebusters_benchmark_output_orig_structure_1/",
-    #     docking_maps="manual",
-    #     icm_dockscan_path="/home/aoxu/icm-3.9-4/_dockScan",
-    # )
-    
-    # Save the configuration for future use
-    # config.to_file('icm_docking_config.yaml')
+    config = ICMDockingConfig.from_file('cogligand_config/model/icm_inference.yaml')
     
     # Create docking processor with configuration
     docking_processor = ICMBatchDocking(config)
     
     # Run docking with default parameters from config
-    docking_processor.run_docking_preparation(stage="identify_pocket")
-    
-    # Or override specific parameters
-    # docking_processor.run_docking(num_conf=20, thorough=10.0)
+    # docking_processor.run_docking_preparation(stage="preprocessing")
+    # docking_processor.run_docking_preparation(stage="identify_pocket")
+    docking_processor.run_docking(num_conf=10, thorough=10.0)

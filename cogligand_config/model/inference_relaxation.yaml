@@ -1,6 +1,6 @@
-method: diffdock # the method for which to relax predictions - NOTE: must be one of (`diffdock`, `fabind`, `dynamicbind`, `neuralplexer`, `rfaa`, `chai-lab`, `vina`, `tulip`)
+method: chai-lab # the method for which to relax predictions - NOTE: must be one of (`diffdock`, `fabind`, `dynamicbind`, `neuralplexer`, `rfaa`, `chai-lab`, `vina`, `tulip`)
 vina_binding_site_method: diffdock # the method to use for Vina binding site prediction - NOTE: must be one of (`diffdock`, `fabind`, `dynamicbind`, `neuralplexer`, `rfaa`, `chai-lab`, `p2rank`)
-dataset: posebusters_benchmark # the dataset for which to relax predictions - NOTE: must be one of (`posebusters_benchmark`, `astex_diverse`, `dockgen`, `casp15`)
+dataset: plinder # the dataset for which to relax predictions - NOTE: must be one of (`posebusters_benchmark`, `astex_diverse`, `dockgen`, `casp15`)
 ensemble_ranking_method: consensus # the method with which to rank-order and select the top ensemble prediction for each target - NOTE: must be one of (`consensus`, `ff`)
 num_processes: 1 # the number of parallel processes to use for relaxation
 temp_dir: ${method}_${dataset}_cache_dir # temporary directory
@@ -24,6 +24,6 @@ report_initial_energy_only: false # skip relaxation and return only the initial 
 max_final_e_value: 1000.0 # when relaxing the protein, maximum final energy value to permit
 max_num_attempts: 5 # when relaxing the protein, maximum number of relaxation attempts to perform
 skip_existing: true # whether to skip existing relaxed predictions
-repeat_index: 1 # the repeat index which was used for inference
+repeat_index: 0 # the repeat index which was used for inference
 pocket_only_baseline: false # whether to prepare the pocket-only baseline
 v1_baseline: false # whether to prepare the v1 baseline

@@ -14,20 +14,21 @@ openFile ICB_OUT_DIR+"/ProteinNameHolder/ProteinNameHolder.icb" 0 yes no no no "
 
 as_graph = a_ProteinNameHolder_ligand_1.
 S_out = Sarray( s_projectsDir + "icmdock/" ) 
-s_out = ( Nof(as_graph & a_ProteinNameHolder_protein. ) > 0 )
+s_out = ( Nof(as_graph & a_ProteinNameHolder_protein. ) > 0 )?" Error> the pocket is NOT EMPTY, move ligand out first!":""
 as_graph = Sphere(as_graph a_ProteinNameHolder_protein. 5. ) 
 print s_out 
 
 # create dockign maps 
-if ( ! Exist( MAPS_OUT_DIR+"/protien_ProteinNameHolder/" ) ) make directory MAPS_OUT_DIR+"/protien_ProteinNameHolder/"
-set directory MAPS_OUT_DIR+"/protien_ProteinNameHolder/" 
+# used p_MapProjectNameHolder because " Error> Too long name of the project protien_1afb__1__1_A__1_D_1_F: 29 symbols."
+if ( ! Exist( MAPS_OUT_DIR+"/p_MapProjectNameHolder/" ) ) make directory MAPS_OUT_DIR+"/p_MapProjectNameHolder/"
+set directory MAPS_OUT_DIR+"/p_MapProjectNameHolder/" 
 currentDockProj.data[8] = "yes" 
 if( Type( as_graph ) == "aselection" ) tempsel = as_graph & a_ProteinNameHolder_protein. 
 if( Type( as_graph ) == "unknown" ) tempsel = as_graph & a_ProteinNameHolder_protein. 
-dock2SetupReceptor "protein_ProteinNameHolder" a_ProteinNameHolder_protein. tempsel yes no ? "enhancedBorn" : "none" 
+dock2SetupReceptor "p_MapProjectNameHolder" a_ProteinNameHolder_protein. tempsel yes no ? "enhancedBorn" : "none" 
 
- if( yes & currentDockProj.l_readyReceptor ) dock5CalcMaps "protein_ProteinNameHolder" 0.5 4.0 no 
- currentDockProj.data[1] = "protein_ProteinNameHolder"
+ if( yes & currentDockProj.l_readyReceptor ) dock5CalcMaps "p_MapProjectNameHolder" 0.5 4.0 no 
+ currentDockProj.data[1] = "p_MapProjectNameHolder"
 
 
  s_out = Path() 
@@ -37,4 +38,4 @@ dock2SetupReceptor "protein_ProteinNameHolder" a_ProteinNameHolder_protein. temp
  s_out = ICB_OUT_DIR+"/ProteinNameHolder/ProteinNameHolder.icb" 
  writeProject s_out s_currentProject!="" 
   
-# quit
+quit
