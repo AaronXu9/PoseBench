@@ -121,7 +121,7 @@ def write_scripts(
 
 @hydra.main(
     version_base="1.3",
-    config_path="../../configs/data",
+    config_path="../../cogligand_config/data",
     config_name="chai_input_preparation.yaml",
 )
 def main(cfg: DictConfig):
@@ -143,7 +143,7 @@ def main(cfg: DictConfig):
         ), f"Invalid test IDs file path for DockGen: {os.path.exists(cfg.dockgen_test_ids_filepath)}."
         with open(cfg.dockgen_test_ids_filepath) as f:
             pdb_ids = {line.replace(" ", "-") for line in f.read().splitlines()}
-    elif cfg.dataset not in ["posebusters_benchmark", "astex_diverse", "dockgen", "casp15"]:
+    elif cfg.dataset not in ["posebusters_benchmark", "astex_diverse", "dockgen", "casp15", "plinder"]:
         raise ValueError(f"Dataset `{cfg.dataset}` not supported.")
 
     if cfg.protein_filepath is not None and cfg.ligand_smiles is None:

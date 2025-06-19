@@ -53,7 +53,7 @@ def run_chai_inference(fasta_file: str, cfg: DictConfig):
 
 @hydra.main(
     version_base="1.3",
-    config_path="../../configs/model",
+    config_path="../../cogligand_onfig/model",
     config_name="chai_inference.yaml",
 )
 def main(cfg: DictConfig):

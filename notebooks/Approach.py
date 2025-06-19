@@ -1,5 +1,6 @@
 import os
 import re
+import json
 from abc import ABC, abstractmethod
 from typing import List
 import pandas as pd
@@ -30,12 +31,44 @@ class DockingApproach(ABC):
 class ICMApproach(DockingApproach):
     def get_name(self) -> str:
         return "icm"
+    
+    def top_n_conformation(self, protein_dir: str):
+        protein_name = os.path.basename(protein_dir)
+        input_sdf = os.path.join(protein_dir, f"answers_{protein_name}.sdf")
+        """select the top n conformations from the input sdf file"""
+        try: 
+            suppl = Chem.SDMolSupplier(input_sdf, removeHs=False)
+
+            mols = []
+            for mol in suppl:
+                if mol is not None:
+                    score = float(mol.GetProp("Score"))  # Adjust property name as needed
+                    mols.append((mol, score))
+
+            # Sort ascending (lowest score first)
+            mols.sort(key=lambda x: x[1])
+
+            # Write rank1.sdf
+            if mols:
+                w1 = Chem.SDWriter(os.path.join(protein_dir, "rank1.sdf"))
+                w1.write(mols[0][0])
+                w1.close()
+
+            # Write rank2.sdf to rank5.sdf
+            for i in range(1, 5):
+                if i < len(mols):
+                    writer = Chem.SDWriter(os.path.join(protein_dir, f"rank{i+1}.sdf"))
+                    writer.write(mols[i][0])
+                    writer.close()
+        except:
+            print(f"Could not find {input_sdf}")
 
     def list_top_n_files(self, protein_dir: str, top_n: int) -> List[str]:
         """
         Assume ICM wrote 'rank1.sdf', 'rank2.sdf', etc.
         We'll list all files matching 'rankX.sdf', sort by X, return top_n.
         """
+        self.top_n_conformation(protein_dir)
         all_files = os.listdir(protein_dir)
         sdf_files = [f for f in all_files if f.startswith("rank") and f.endswith(".sdf")]
         
@@ -153,7 +186,6 @@ class DiffDockPocketApproach(DockingApproach):
                 return float('nan')
         return float('nan')
     
-
 class ChaiApproach(DockingApproach):
     def get_name(self) -> str:
         return "chai-1"
@@ -183,7 +215,6 @@ class ChaiApproach(DockingApproach):
     def parse_score(self, sdf_path: str) -> float:
         return float('nan')
     
-
 class VinaApproach(DockingApproach):
     def get_name(self) -> str:
         return "vina"
@@ -222,7 +253,6 @@ class VinaApproach(DockingApproach):
                 return float('nan')
         return float('nan')
     
-
 class GninaApproach(DockingApproach):
     def get_name(self) -> str:
         return "gnina"
@@ -260,7 +290,6 @@ class GninaApproach(DockingApproach):
                 return float('nan')
         return float('nan')
     
-
 class SurfDockApproach(DockingApproach):
     def get_name(self) -> str:
         return "surfdock"
@@ -326,3 +355,129 @@ class SurfDockApproach(DockingApproach):
         # Return confidence as the 'score' for consistency
         return confidence
 
+class BoltzApproach(DockingApproach):
+    def get_name(self) -> str:
+        return "boltz"
+
+    def list_top_n_files(self, protein_dir: str, top_n: int) -> List[str]:
+        """
+        Boltz outputs are in predictions/<protein_name>/<protein_name>_model_X.pdb
+        We'll convert PDB files to SDF format and return paths to top_n files.
+        """
+        # Navigate to the predictions subdirectory
+        protein_name = os.path.basename(protein_dir).replace("boltz_results_", "")
+        pred_dir = os.path.join(protein_dir, "predictions", protein_name)
+        
+        if not os.path.exists(pred_dir):
+            print(f"[WARNING] Predictions directory not found: {pred_dir}")
+            return []
+        
+        # Find all PDB model files
+        all_files = os.listdir(pred_dir)
+        pdb_files = [f for f in all_files if f.endswith('.pdb') and '_model_' in f]
+        
+        def extract_model_num(fname: str) -> int:
+            match = re.search(r'_model_(\d+)\.pdb', fname)
+            if match:
+                return int(match.group(1))
+            return 999999
+        
+        # Sort by model number
+        pdb_files.sort(key=extract_model_num)
+        
+        # Convert PDB files to SDF and return paths
+        sdf_paths = []
+        for pdb_file in pdb_files[:top_n]:
+            pdb_path = os.path.join(pred_dir, pdb_file)
+            sdf_path = self._convert_pdb_to_sdf(pdb_path)
+            if sdf_path:
+                sdf_paths.append(sdf_path)
+        
+        return sdf_paths
+
+    def _convert_pdb_to_sdf(self, pdb_path: str) -> str:
+        """
+        Extract ligand coordinates from PDB file (HETATM records) and convert to SDF.
+        """
+        try:
+            # Read PDB file and extract HETATM records for ligands
+            ligand_lines = []
+            with open(pdb_path, 'r') as f:
+                for line in f:
+                    if line.startswith('HETATM') and 'LIG' in line:
+                        ligand_lines.append(line)
+            
+            if not ligand_lines:
+                print(f"[WARNING] No ligand HETATM records found in {pdb_path}")
+                return None
+            
+            # Create a temporary PDB file with only ligand atoms
+            temp_pdb = pdb_path.replace('.pdb', '_ligand_temp.pdb')
+            with open(temp_pdb, 'w') as f:
+                f.writelines(ligand_lines)
+                f.write('END\n')
+            
+            # Convert to SDF using RDKit
+            sdf_path = pdb_path.replace('.pdb', '_ligand.sdf')
+            
+            # Try to read the ligand PDB with RDKit
+            mol = Chem.MolFromPDBFile(temp_pdb, removeHs=False)
+            if mol is not None:
+                writer = Chem.SDWriter(sdf_path)
+                writer.write(mol)
+                writer.close()
+                
+                # Clean up temporary file
+                os.remove(temp_pdb)
+                return sdf_path
+            else:
+                print(f"[WARNING] Could not parse ligand from {pdb_path}")
+                os.remove(temp_pdb)
+                return None
+                
+        except Exception as e:
+            print(f"[ERROR] Failed to convert {pdb_path} to SDF: {str(e)}")
+            return None
+
+    def parse_score(self, sdf_path: str) -> float:
+        """
+        Parse confidence score from the corresponding JSON file.
+        Also try to get affinity value as an alternative score.
+        """
+        try:
+            # Get the base path and model number from SDF path
+            base_path = sdf_path.replace('_ligand.sdf', '')
+            pred_dir = os.path.dirname(sdf_path)
+            
+            # Extract model number
+            match = re.search(r'_model_(\d+)_ligand\.sdf', sdf_path)
+            if not match:
+                return float('nan')
+            
+            model_num = match.group(1)
+            
+            # Look for confidence JSON file
+            json_pattern = f"confidence_*_model_{model_num}.json"
+            json_files = [f for f in os.listdir(pred_dir) if re.match(json_pattern.replace('*', '.*'), f)]
+            
+            if json_files:
+                json_path = os.path.join(pred_dir, json_files[0])
+                with open(json_path, 'r') as f:
+                    data = json.load(f)
+                    # Return confidence score as primary metric
+                    return data.get('confidence_score', float('nan'))
+            
+            # If no confidence file, try affinity file
+            affinity_files = [f for f in os.listdir(pred_dir) if f.startswith('affinity_') and f.endswith('.json')]
+            if affinity_files:
+                affinity_path = os.path.join(pred_dir, affinity_files[0])
+                with open(affinity_path, 'r') as f:
+                    data = json.load(f)
+                    # Return affinity prediction value
+                    return data.get('affinity_pred_value', float('nan'))
+            
+            return float('nan')
+            
+        except Exception as e:
+            print(f"[ERROR] Failed to parse score from {sdf_path}: {str(e)}")
+            return float('nan')

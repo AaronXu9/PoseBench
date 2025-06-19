@@ -41,7 +41,7 @@ def distinguish_ligand_atoms(input_pdb_file: str, output_pdb_file: str):
 
 @hydra.main(
     version_base="1.3",
-    config_path="../../configs/data",
+    config_path="../../cogligand_config/data",
     config_name="chai_output_extraction.yaml",
 )
 def main(cfg: DictConfig):
@@ -59,7 +59,7 @@ def main(cfg: DictConfig):
         ), f"Invalid test IDs file path for DockGen: {os.path.exists(cfg.dockgen_test_ids_filepath)}."
         with open(cfg.dockgen_test_ids_filepath) as f:
             pdb_ids = {line.replace(" ", "-") for line in f.read().splitlines()}
-    elif cfg.dataset not in ["posebusters_benchmark", "astex_diverse", "dockgen", "casp15"]:
+    elif cfg.dataset not in ["posebusters_benchmark", "astex_diverse", "dockgen", "casp15", "plinder"]:
         raise ValueError(f"Dataset `{cfg.dataset}` not supported.")
 
     if cfg.pocket_only_baseline:
@@ -122,7 +122,7 @@ def main(cfg: DictConfig):
                     intermediate_output_filepath = os.path.join(output_item_path, file)
                     final_output_filepath = os.path.join(cfg.inference_outputs_dir, item, file)
                     os.makedirs(os.path.dirname(final_output_filepath), exist_ok=True)
-                    if cfg.dataset in ["posebusters_benchmark", "astex_diverse", "dockgen"]:
+                    if cfg.dataset in ["posebusters_benchmark", "astex_diverse", "dockgen", "plinder"]:
                         ligand_smiles = pdb_id_to_smiles[item].replace("|", ".")
                     else:
                         # NOTE: for the `casp15` dataset, standalone ligand SMILES are not available
@@ -131,14 +131,18 @@ def main(cfg: DictConfig):
                         intermediate_output_filepath,
                         final_output_filepath.replace(".pdb", "_fixed.pdb"),
                     )
-                    extract_protein_and_ligands_with_prody(
-                        final_output_filepath.replace(".pdb", "_fixed.pdb"),
-                        final_output_filepath.replace(".pdb", "_protein.pdb"),
-                        final_output_filepath.replace(".pdb", "_ligand.sdf"),
-                        sanitize=False,
-                        add_element_types=True,
-                        ligand_smiles=ligand_smiles,
-                    )
+                    try: 
+                        extract_protein_and_ligands_with_prody(
+                            final_output_filepath.replace(".pdb", "_fixed.pdb"),
+                            final_output_filepath.replace(".pdb", "_protein.pdb"),
+                            final_output_filepath.replace(".pdb", "_ligand.sdf"),
+                            sanitize=False,
+                            add_element_types=True,
+                            ligand_smiles=ligand_smiles,
+                        )
+                    except Exception as e:
+                        logger.error(f"Error processing {intermediate_output_filepath}: {e}")
+                        continue
                     os.remove(final_output_filepath.replace(".pdb", "_fixed.pdb"))
 
     logger.info(
@@ -146,5 +150,5 @@ def main(cfg: DictConfig):
     )
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  
     main()
