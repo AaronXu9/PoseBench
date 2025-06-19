@@ -1,0 +1,11 @@
+properties:
+- affinity:
+    binder: B
+sequences:
+- protein:
+    id: A
+    sequence: EVNP
+- ligand:
+    id: B
+    smiles: CC(=O)N[C@@H](CCC(=O)O)C(=O)N[C@H](C(=O)N[C@@H](CC(N)=O)C(=O)N1CCC[C@H]1C(=O)O)C(C)C
+version: 1

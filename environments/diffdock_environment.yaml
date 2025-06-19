@@ -1,5 +1,4 @@
-name:
-  DiffDock
+name: DiffDock
 channels:
   - pyg
   - pytorch
@@ -304,7 +303,6 @@ dependencies:
       - pyaml==21.10.1
       - pybind11==2.11.1
       - pydub==0.25.1
-      - git+https://github.com/pyg-team/pyg-lib.git
       - pyparsing==3.0.9
       - pyperclip==1.8.2
       - python-dotenv==1.0.0
@@ -342,5 +340,4 @@ dependencies:
       - yarl==1.9.2
       - zope-event==5.0
       - zope-interface==6.0
-prefix:
-  forks/DiffDock/DiffDock
+prefix: forks/DiffDock/DiffDock

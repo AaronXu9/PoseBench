@@ -1,0 +1,11 @@
+properties:
+- affinity:
+    binder: B
+sequences:
+- protein:
+    id: A
+    sequence: LIVNVINGPNLGRLGPAVYGGTTHDELVALIEREAAELGLKAVVRQSDSEAQLLDWIHQAADAAEPVILNAGGLTHTSVALRDACAELSAPLIEVHISNVHAREEFRRHSYLSPIATGVIVGLGIQGYLLALRYLAEH
+- ligand:
+    id: B
+    smiles: Cc1ccc2sc(COC3=C[C@@](O)(C(=O)O)C[C@@H](O)[C@@H]3O)cc2c1
+version: 1

@@ -1,0 +1,11 @@
+properties:
+- affinity:
+    binder: B
+sequences:
+- protein:
+    id: A
+    sequence: RRATKM
+- ligand:
+    id: B
+    smiles: CSCC[C@H](NC(=O)[C@H](CCCCN)NC(=O)[C@@H](NC(=O)[C@H](C)NC(=O)[C@H](CCCN=C(N)N)NC(=O)[C@@H](N)CCCN=C(N)N)[C@@H](C)O)C(N)=O
+version: 1

@@ -3,14 +3,14 @@ output_path: "prediction_outputs"
 checkpoint_path: RFAA_paper_weights.pt
 database_params:
   sequencedb: ""
-  hhdb: "${oc.env:PROJECT_ROOT}/forks/RoseTTAFold-All-Atom/bmlfast/rfaa_databases/pdb100_2021Mar03/pdb100_2021Mar03"
+  hhdb: "/cluster/pixstor/chengji-lab/bml_casp16/tools/rfaa_databases_multicom3/pdb100_2021Mar03/pdb100_2021Mar03"
   command: make_msa.sh
   num_cpus: 4
   mem: 60
 protein_inputs: null
 na_inputs: null
 sm_inputs: null
-covale_inputs:  null
+covale_inputs: null
 residue_replacement: null
 
 chem_params:
@@ -24,7 +24,6 @@ loader_params:
   MAXCYCLE: 4
   BLACK_HOLE_INIT: False
   seqid: 150.0
-
 
 legacy_model_param:
   n_extra_block: 4
@@ -46,7 +45,7 @@ legacy_model_param:
   recycling_type: "all"
   use_same_chain: True
   lj_lin: 0.75
-  SE3_param: 
+  SE3_param:
     num_layers: 1
     num_channels: 32
     num_degrees: 2
