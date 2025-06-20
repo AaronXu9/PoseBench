@@ -43,4 +43,4 @@ skip_existing: true
 logging:
   level: "INFO"
   file: "icm_docking.log"
-  console: true
+  console: true3

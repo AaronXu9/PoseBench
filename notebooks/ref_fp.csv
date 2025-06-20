@@ -1,5 +1,0 @@
-ligand,UNL1,UNL1,UNL1,UNL1,UNL1,UNL1,UNL1,UNL1,UNL1,UNL1,UNL1,UNL1,UNL1,UNL1,UNL1,UNL1,UNL1,UNL1,UNL1,UNL1,UNL1,UNL1,UNL1,UNL1,UNL1,UNL1,UNL1
-protein,VAL42.A,TYR48.A,TYR48.A,TRP90.A,HIS174.A,HIS174.A,HIS174.A,HIS174.A,HIS174.A,SER215.A,SER215.A,ARG230.A,ARG230.A,ARG230.A,GLY232.A,GLY232.A,ILE233.A,ILE233.A,TYR366.A,TYR366.A,TYR366.A,TYR273.B,TYR273.B,CYS320.B,MET321.B,MET321.B,MET321.B
-interaction,Hydrophobic,HBAcceptor,VdWContact,Hydrophobic,Hydrophobic,PiCation,FaceToFace,PiStacking,VdWContact,HBAcceptor,VdWContact,Hydrophobic,HBAcceptor,VdWContact,HBAcceptor,VdWContact,HBAcceptor,VdWContact,Hydrophobic,HBAcceptor,VdWContact,Hydrophobic,VdWContact,Hydrophobic,Hydrophobic,HBAcceptor,VdWContact
-Pose,,,,,,,,,,,,,,,,,,,,,,,,,,,
--1,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True
