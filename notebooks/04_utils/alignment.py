@@ -9,6 +9,9 @@ from MDAnalysis.analysis import align
 
 from rdkit import Chem
 from rdkit.Chem import AllChem
+from rdkit import Chem
+from rdkit.Chem import rdMolAlign, rdFMCS
+import numpy as np
 
 import subprocess
 
@@ -150,7 +153,6 @@ def compute_ligand_rmsd(ref_lig_sdf, aligned_pred_lig_sdf):
     print(f"Ligand RMSD (same frame): {rmsd_val:.3f} Å")
     return rmsd_val
 
-
 def align_with_pymol(ref_prot, ref_lig, pred_prot, pred_lig, out_prot, out_lig):
     """
     Generate a PyMOL script on the fly to:
@@ -217,6 +219,30 @@ quit
             print("=== PyMOL STDERR ===")
             print(err.strip())
 
+def load_first_mol(sdf_file):
+    """Return the first molecule in an SDF (with hydrogens removed)."""
+    suppl = Chem.SDMolSupplier(sdf_file, removeHs=False)
+    if not suppl or suppl[0] is None:
+        raise ValueError(f"Could not read a molecule from {sdf_file}")
+    return Chem.RemoveHs(suppl[0])
+
+def rmsd_on_mcs(mol1, mol2):
+    """Compute RMSD using Maximum Common Substructure alignment."""
+    mcs = rdFMCS.FindMCS(
+        [mol1, mol2],
+        ringMatchesRingOnly=True,
+        completeRingsOnly=True,
+        timeout=10)
+    mcs_mol = Chem.MolFromSmarts(mcs.smartsString)
+    idx1 = mol1.GetSubstructMatch(mcs_mol)
+    idx2 = mol2.GetSubstructMatch(mcs_mol)
+    if not idx1 or not idx2:
+        raise RuntimeError("No common substructure found.")
+    atom_map = list(zip(idx2, idx1))  # (probe, ref)
+    rmsd_val = rdMolAlign.AlignMol(mol2, mol1, atomMap=atom_map)
+    return rmsd_val, len(atom_map)
+
+print("Imports and utility functions loaded successfully!")
 
 def main_mda_loop():
     """
