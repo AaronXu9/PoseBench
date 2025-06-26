@@ -132,7 +132,7 @@ for approach in approaches:
         top_n=5
     )
     df_all.append(df_method)
-    df_method.to_csv(f"./notebooks/{method_name}_{exp_name}_results.csv", index=False)
+    df_method.to_csv(f"./notebooks/05_specialized_analysis/{method_name}_{exp_name}_results.csv", index=False)
 df_combined = pd.concat(df_all, ignore_index=True)
 print(df_combined.shape)
 df_combined.head()
