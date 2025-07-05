@@ -1,0 +1,187 @@
+########################################################################
+##                                                                    ##
+## This script full automates RMSD calculation for pose               ##
+## reproducibility accessment in V-SYNTHES                            ##
+## Version 02082022  -  Antonina L. Nazarova   nazarova@usc.edu       ## 
+## If using this script, please cite Antonina L. Nazarova             ##
+## nazarova@usc.edu, Depqrtment of Quantitative and Computational     ##
+## Biology, University of Southern California, LA, USA, 90089         ##
+########################################################################
+
+
+
+
+
+
+call _startup
+S_files = Getarg(list)
+if (Nof(S_files) !=2) quit "2 files expected as an input"
+s_file1 = S_files[1]
+s_file2 = S_files[2]
+
+read table mol s_file1 name="list_1"
+read table mol s_file2 name="list_2"
+
+
+#processing_path=Path()
+
+#read sys find $processing_path/$LIST*.icb
+#frags_icb=Split(s_out,"\n")[1]
+#openFile frags_icb
+#tmp_Name=Split(frags_icb,"/")
+#tmp_FileName=tmp_Name[Nof(tmp_Name)]
+#icbFileName=tmp_FileName[1:Length(tmp_FileName)-4]
+
+#write table mol compress $icbFileName Path()+"CapSelect_files/fragments.sdf" delete
+
+distarray1 = Rarray(Nof(list_2))
+delete hydrogen list_1.mol
+delete hydrogen list_2.mol
+delete  prop1_1,  prop1_2, prop2_1, prop2_2, prop1_3, prop2_3
+delete rmsd
+
+# Corrected script
+
+# SRMSD calculation for 2-comp
+
+for j=1, Nof(list_2)
+	prop2_1=String(list_2.synton_id_1[j])
+	print prop2_1
+	prop2_2=String(list_2.synton_id_2[j])
+	print prop2_2
+	prop2_3=String(list_2.synton_id_3[j])
+	print prop2_3
+	#pop=0
+	for i=1, Nof(list_1)
+    		prop1_1=String(list_1.synton_id_1[i])
+    		print prop1_1
+    		prop1_2=String(list_1.synton_id_2[i])
+    		print prop1_2
+		prop1_3=String(list_1.synton_id_3[i])
+		print prop1_3
+
+        # Check for matching properties and calculate SRMSD for prop1_1
+        	if ((prop2_1 == prop1_1) & (prop1_1 != "s0") & (prop2_1 != "s0") & (prop1_1 != "s-1") & (prop2_1 != "s-1")) then
+            		print "synton 1 match"
+			s_MCS_smiles = ""
+			path_to_sdf_files = "/home/nazarova/FRAGS_FOR_ENUM/VSYNTHES_2_1_MEL_2025/REAL_36B_files/" + String(list_1.rxn_ID[i]) + "__1.sdf"
+			print path_to_sdf_files
+			read table path_to_sdf_files name="T_synth"
+			for k=1, Nof(T_synth.mol)
+				print "KKK" + k
+				#print k
+  				mel=String(T_synth.synton_id[k])
+  				if(mel == prop1_1) then
+    					s_MCS_smiles = String(T_synth.SMILES[k])
+    					print mel
+    					break
+  				endif
+			endfor
+			delete T_synth path_to_sdf_files
+			#if (s_MCS_smiles == "") quit "cannot find s_MCS_smiles for" + prop1_1 + "file: " + path_to_sdf_files
+            		read mol list_1.mol[i] name="x1"
+            		read mol list_2.mol[j] name="x2"
+            		find chemical a_x1. s_MCS_smiles; as1 = as_out
+            		find chemical a_x2. s_MCS_smiles; as2 = as_out
+            		if (Nof(as1) > 0 & Nof(as2) > 0) then
+                		rmsd = Srmsd(as1, as2 chemical)
+               		 #print "SRMSD between ", list_1.mol[i], " and ", list_2.mol[j], ": ", rmsd, "JJJJ", j
+				print "JJJJ", j                
+				distarray1[j] = rmsd
+				#pop=1
+                		break
+           		else
+                		print "something wrong: synthon doesn't match"
+                		break
+            		endif
+            		delete a_x1.
+            		delete a_x2.
+            		
+        	endif
+		#continue
+        # Similar block for prop1_2 and prop2_2
+        	if ((prop2_2 == prop1_2) & (prop1_2 != "s0") & (prop2_2 != "s0") & (prop1_2 != "s-1") & (prop2_2 != "s-1")) then
+            		print "synton 2 match"
+            		s_MCS_smiles = ""
+			path_to_sdf_files = "/home/nazarova/FRAGS_FOR_ENUM/VSYNTHES_2_1_MEL_2025/REAL_36B_files/" + String(list_1.rxn_ID[i]) + "__2.sdf"
+			print path_to_sdf_files
+			read table path_to_sdf_files name="T_synth"
+			for k=1, Nof(T_synth.mol)
+				print "KKK" + k
+  				mel=String(T_synth.synton_id[k])
+  				if(mel == prop1_2) then
+    					s_MCS_smiles = String(T_synth.SMILES[k])
+    					print mel
+    					break
+  				endif
+			endfor
+			delete T_synth path_to_sdf_files
+						#if (s_MCS_smiles == "") quit "cannot find s_MCS_smiles for" + prop1_2 + "file: " + path_to_sdf_files
+            		read mol list_1.mol[i] name="x1"
+            		read mol list_2.mol[j] name="x2"
+            		find chemical a_x1. s_MCS_smiles; as1 = as_out
+            		find chemical a_x2. s_MCS_smiles; as2 = as_out
+            		if (Nof(as1) > 0 & Nof(as2) > 0) then
+                		rmsd = Srmsd(as1, as2 chemical)
+                			#print "SRMSD between ", list_1.mol[i], " and ", list_2.mol[j], ": ", rmsd, "JJJJ", j
+				print "JJJJ", j 
+                		distarray1[j] = rmsd
+                		#pop=1
+                		break
+            		else
+                		print "something wrong: synthon doesn't match"
+            		endif
+            		delete a_x1.
+            		delete a_x2.
+            		
+        	endif
+		#continue
+		if ((prop2_3 == prop1_3) & (prop1_3 != "s0") & (prop2_3 != "s0") & (prop1_3 != "s-1") & (prop2_3 != "s-1")) then
+            		print "synton 3 match"
+			s_MCS_smiles = ""
+			path_to_sdf_files = "/home/nazarova/FRAGS_FOR_ENUM/VSYNTHES_2_1_MEL_2025/REAL_36B_files/" + String(list_1.rxn_ID[i]) + "__3.sdf"
+			print path_to_sdf_files
+			read table path_to_sdf_files name="T_synth"
+			for k=1, Nof(T_synth.mol)
+				print "KKK" + k
+  				mel=String(T_synth.synton_id[k])
+  				if(mel == prop1_3) then
+    					s_MCS_smiles = String(T_synth.SMILES[k])
+    					print mel
+    					break
+  				endif
+			endfor
+			delete T_synth path_to_sdf_files
+						#if (s_MCS_smiles == "") quit "cannot find s_MCS_smiles for" + prop1_1 + "file: " + path_to_sdf_files
+            		read mol list_1.mol[i] name="x1"
+            		read mol list_2.mol[j] name="x2"
+            		find chemical a_x1. s_MCS_smiles; as1 = as_out
+            		find chemical a_x2. s_MCS_smiles; as2 = as_out
+            		if (Nof(as1) > 0 & Nof(as2) > 0) then
+                		rmsd = Srmsd(as1, as2 chemical)
+                #print "SRMSD between ", list_1.mol[i], " and ", list_2.mol[j], ": ", rmsd, "JJJJ", j
+				print "JJJJ", j 
+                		distarray1[j] = rmsd
+                		#pop=1
+				break
+            		else
+                		print "something wrong: synthon doesn't match"
+            		endif
+            		delete a_x1.
+            		delete a_x2.
+            		
+        	endif
+		#continue
+		#if pop=0 then
+		#	rmsd = 1000
+		#	break
+		#endif
+	endfor
+endfor
+
+add column list_2 distarray1 name="RMSD"
+
+write table mol compress list_2 Path()+"list_2_fin.sdf" delete
+
+
+quit

@@ -1,0 +1,47 @@
+########################################################################
+##                                                                    ##
+## This script full automates RMSD calculation for pose               ##
+## reproducibility accessment in V-SYNTHES                            ##
+## Version 02082022  -  Antonina L. Nazarova   nazarova@usc.edu       ## 
+## If using this script, please cite Antonina L. Nazarova             ##
+## nazarova@usc.edu, Depqrtment of Quantitative and Computational     ##
+## Biology, University of Southern California, LA, USA, 90089         ##
+########################################################################
+
+
+call _startup
+l_commands=no
+l_info=no
+errorAction="exit"
+
+# Macro to process .sdf files and add a SMILES column
+macro ProcessSdfFiles
+  # Path to the folder containing .sdf files
+  path_to_sdf_files = "/home/nazarova/FRAGS_FOR_ENUM/VSYNTHES_2_1_MEL_2025/REAL_36B_files/"
+  #path_to_sdf_files = "/data/enamine_real_enum_react/markush_2021/synthons"
+
+  # Get list of .sdf files in the folder
+  sdf_files = Sarray( path_to_sdf_files + "/*.sdf" directory )
+
+  # Loop through each .sdf file
+  for i = 1,Nof(sdf_files)
+    file_name = sdf_files[i]
+    if( file_name != "" ) then
+      # Print the file name for debugging
+      print "Opening file: " + file_name
+
+      read table mol file_name name="t"
+      ch = t.mol   # copy to keep original column
+      modify chemical exact ch "[*;**]" "*"
+      add column t Smiles(ch) name="SMILES"
+      write table mol delete t file_name
+
+    endif
+  endfor
+endmacro
+
+ProcessSdfFiles
+
+quit
+
+
