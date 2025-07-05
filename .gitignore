@@ -208,6 +208,9 @@ scripts/inference/
 /forks/ICM/icm_docking_scripts/
 /forks/ICM/icm_posebusters_benchmark_output_*/*
 /forks/ICM/legacy_examples/
+/forks/ICM/rmsd/*.sdf
+/forks/ICM/rmsd/*.pdb
+/forks/ICM/rmsd/*.sh
 /ICM/
 #system specific 
 .DS_Store
