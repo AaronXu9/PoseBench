@@ -201,6 +201,7 @@ configs/local/default.yaml
 /forks/RoseTTAFold-All-Atom/UniRef30_2020_06/
 /forks/gnina/
 /forks/GNINA/
+/forks/boltz/input/
 scripts/inference/
 /forks/gnia/gnina
 /forks/ICM/ICM_docking_maps/
