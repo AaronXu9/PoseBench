@@ -547,37 +547,36 @@ if __name__ == "__main__":
     import yaml
     config = parse_config_file_with_omegaconf(sys.argv[1])
     run(config)
-    exit()
+    # exit()
 
-    if len(sys.argv) >= 4:
-        main(posebusters_dir=sys.argv[1], results_dir=sys.argv[2], method=sys.argv[3], top_n=int(sys.argv[4]))
-    if len(sys.argv) >= 3:
-        main(posebusters_dir=sys.argv[1], top_n=int(sys.argv[2]))
-    elif len(sys.argv) == 2:
-        main(posebusters_dir=sys.argv[1])
-    
-    if config['method'] == 'gnina':
-        base_dir = "forks/GNINA/inference/GNINA_plinder_output_0"
-        for protein_dir in os.listdir(base_dir):
-            print(f"processing protein {protein_dir}")
-            output_directory = os.path.join(base_dir, protein_dir)
-            sdf_file_path = os.path.join(output_directory, "docked.sdf.gz")
-            if not os.path.exists(sdf_file_path):
-                print(f"{protein_dir} does not exist")
-                continue
-            # Create the output directory if it doesn't exist
-            os.makedirs(output_directory, exist_ok=True)
+    # if len(sys.argv) >= 4:
+    #     main(posebusters_dir=sys.argv[1], results_dir=sys.argv[2], method=sys.argv[3], top_n=int(sys.argv[4]))
+    # if len(sys.argv) >= 3:
+    #     main(posebusters_dir=sys.argv[1], top_n=int(sys.argv[2]))
+    # elif len(sys.argv) == 2:
+    #     main(posebusters_dir=sys.argv[1])
+    base_dir = config['output_dir']
+    base_dir = "forks/GNINA/inference/gnina_runsNposes_output_0"
+    for protein_dir in os.listdir(base_dir):
+        print(f"processing protein {protein_dir}")
+        output_directory = os.path.join(base_dir, protein_dir)
+        sdf_file_path = os.path.join(output_directory, "docked.sdf.gz")
+        if not os.path.exists(sdf_file_path):
+            print(f"{protein_dir} does not exist")
+            continue
+        # Create the output directory if it doesn't exist
+        os.makedirs(output_directory, exist_ok=True)
 
-            # Decompress the SDF file
-            if not os.path.exists(sdf_file_path.replace("docked.sdf.gz", "docked.sdf")):
-                decompressed_file_path = decompress_file(sdf_file_path)
+        # Decompress the SDF file
+        if not os.path.exists(sdf_file_path.replace("docked.sdf.gz", "docked.sdf")):
+            decompressed_file_path = decompress_file(sdf_file_path)
 
-            # Load the compressed SDF file using RDKit
-            mols = load_sdf(sdf_file_path.replace("docked.sdf.gz", "docked.sdf"))
+        # Load the compressed SDF file using RDKit
+        mols = load_sdf(sdf_file_path.replace("docked.sdf.gz", "docked.sdf"))
 
-            # Extract scores from the loaded molecules
-            results = extract_scores(mols)
+        # Extract scores from the loaded molecules
+        results = extract_scores(mols)
 
-            # Rank the poses and save to a single SDF file
-            rank_and_save_poses(results, output_directory)
+        # Rank the poses and save to a single SDF file
+        rank_and_save_poses(results, output_directory)
 

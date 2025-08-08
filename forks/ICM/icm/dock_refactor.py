@@ -20,6 +20,7 @@ class ICMDockingConfig:
     # Required parameters
     dataset: str
     data_dir: str
+    task: str
     icm_preprocess_script_template: str
     icm_pocket_identification_script_template: str
     icm_executable: str
@@ -213,8 +214,22 @@ class ICMBatchDocking:
             ligand_name = dirname
             
             # Check if required files exist
-            pdb_path = os.path.join(dir_path, f"{dirname}_protein.pdb")
-            sdf_path = os.path.join(dir_path, f"{dirname}_ligand.sdf")
+            pdb_files = glob.glob(os.path.join(dir_path, "*.pdb"))
+            sdf_files = glob.glob(os.path.join(dir_path, "*.sdf"))
+            if not sdf_files:
+                sdf_files = glob.glob(os.path.join(dir_path, "ligand_files", "*.sdf"))
+            
+            if not pdb_files:
+                print(f"Skipping '{dirname}': No PDB file found")
+                continue
+            
+            if not sdf_files:
+                print(f"Skipping '{dirname}': No SDF file found")
+                continue
+            
+            # Use the first found files
+            pdb_path = pdb_files[0]
+            sdf_path = sdf_files[0]
             
             if not os.path.exists(pdb_path):
                 print(f"Skipping '{dirname}': Missing PDB file {pdb_path}")
@@ -391,7 +406,7 @@ class ICMBatchDocking:
         for pair in pairs:
             original_protein_name = pair["protein_name"]
             shortened_protein_name = self.get_shortened_protein_name(original_protein_name)
-            protein_name = pair["protein_name"].replace('.', '_') if self.config.dataset == "plinder_set" else protein_name
+            protein_name = pair["protein_name"].replace('.', '_') if self.config.dataset == "plinder_set" or self.config.dataset == "runsNposes" else original_protein_name
             print(f"\nProcessing {pair['ligand_name']}...")
 
             # skipping existing results 
@@ -401,7 +416,7 @@ class ICMBatchDocking:
                 f"{self.config.dataset}", 
                 f"{sufix}_{shortened_protein_name}"
             )
-            if stage=="preprocessing" and os.path.exists(self.config.icb_out_dir, protein_name, f"{protein_name}.icb"):   
+            if stage=="preprocessing" and os.path.exists(os.path.join(self.config.icb_out_dir, protein_name, f"{protein_name}.icb")):   
                 print(f"Skipping existing script for {pair['ligand_name']}.")
                 continue
             if stage=="identify_pocket" and glob.glob(os.path.join(maps_dir, "*.map")):
@@ -533,8 +548,11 @@ if __name__ == "__main__":
     
     # Create docking processor with configuration
     docking_processor = ICMBatchDocking(config)
-    
+    print(f"ICM Docking Processor initialized with dataset: {config.dataset}, data_dir: {config.data_dir}, task: {config.task}")
     # Run docking with default parameters from config
-    # docking_processor.run_docking_preparation(stage="preprocessing")
-    # docking_processor.run_docking_preparation(stage="identify_pocket")
-    docking_processor.run_docking(num_conf=10, thorough=10.0)
+    if config.task == 'preprocess':
+        docking_processor.run_docking_preparation(stage="preprocessing")
+    if config.task == 'identify_pocket':
+        docking_processor.run_docking_preparation(stage="identify_pocket")
+    if config.task == "dock":
+        docking_processor.run_docking(num_conf=10, thorough=10.0)
